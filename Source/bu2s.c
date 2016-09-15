@@ -1,5 +1,5 @@
 /*
- *  bu2s_3474.c
+ *  bu2s.c
  *  
  *
  *  Created by Samuel Melvin Flaxman on 4/10/12.
@@ -17,8 +17,10 @@ const char *version = "bu2s_3.4.7.5";
 #include <time.h>
 #include <sys/time.h>
 #include <string.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
-#include "../MT/dSFMT.h"
+#include "MT/dSFMT.h"
 
 int loci_count_0 = 0;
 int loci_count_1 = 0;
@@ -34,7 +36,7 @@ dsfmt_t dsfmt;
 
 // constants that have to be set here in source code
 #define D 1 // dimensionality of habitat; set to 1 or 2
-#define PATCHES 2 // number of patches across the habitat in a single dimension; see also nPATCHES below, which is the actual number = PATCHES^D
+#define PATCHES 20 // number of patches across the habitat in a single dimension; see also nPATCHES below, which is the actual number = PATCHES^D
 #define USE_MUTATIONS_FROM_FILES 0 // whether mutation sequence will be defined by a file or at random
 #define ADDITIVE_FITNESS 0
 #define MULTIPLICATIVE_FITNESS 1
@@ -45,10 +47,10 @@ dsfmt_t dsfmt;
 
 
 // parameters that can be changed with command line options, though some options have not yet been built....
-#define TWO_DEME_DEFAULT 1 // if this is 1, then D above should be 1 and PATCHES should be 2, and space will be treated as discrete rather than as continuous
+#define TWO_DEME_DEFAULT 0 // if this is 1, then D above should be 1 and PATCHES should be 2, and space will be treated as discrete rather than as continuous
 #define DETERMINISTIC_DEFAULT 1
 #define nGENERATIONS_MAX_DEFAULT 1 // number of generations between mutations
-#define nMUTATIONS_DEFAULT 15000000
+#define nMUTATIONS_DEFAULT 11000000
 #define MUTATIONS_PER_GENERATION_DEFAULT 1
 #define INITIAL_CONDITIONS_DEFAULT 0
 #define INITIAL_POPULATION_SIZE_DEFAULT 4000
@@ -62,7 +64,7 @@ dsfmt_t dsfmt;
 #define MOSAIC_DEFAULT 0
 #define SD_MOVE_DEFAULT 0.1 // if TWO_DEME is used, this IS the gross migration rate
 #define OIRL_DEFAULT 1 // offspring in random locations or not
-#define nCHROMOSOMES_DEFAULT 5 // only used if MAP_TYPE == 1
+#define nCHROMOSOMES_DEFAULT 10 // only used if MAP_TYPE == 1
 #define TOTAL_MAP_LENGTH_DEFAULT 1000.0 // only used if MAP_TYPE == 1
 #define MUTATION_DISTRIBUTION_DEFAULT 0 // 0 for exponential, 1 for fattened tail, 2 for early "flat" (uniform) distribution, 3 for constant S
 #define FATTEN_TAIL_PROPORTION_DEFAULT 0.0001 // proportion to flatten or fatten
@@ -213,6 +215,7 @@ long int firstTimeResNearMaxFit = -1;
 _Bool approachingSpeciationThreshold = 0;
 _Bool keepIntroducingMutations = 1;
 _Bool NO_MUTATIONS_DURING_ALLOPATRY = 0;
+int timeSampleCounter = 0;
 
 FILE *effMigRates, *FSTtimeSeries, *grossMigRates, *mutationLog;
 FILE *allelesLost, *logOfRemovedLoci, *LDfpt, *epistasisTS, *fixationLog;
@@ -240,9 +243,9 @@ void addALocus(double mapLoc, int locType);
 void bagOfGenes(short int *ogtpt, int *noff, int newN);
 int calculateAlleleFrequencies(void);
 void calculateFitnesses(double *f, double *fsum);
-void calculateLDpair(int l1, int l2, double dist, double *Dsum, double *DprimeSum, double *DeltaSum);
+void calculateLDpair(int l1, int l2, double dist, double *Dsum, double *DprimeSum, double *DeltaSum, int gatherLDvalues);
 double calculateLDpairOneOff(int l1, int l2);
-void calculateLD(void);
+void calculateLD(int gatherLDvalues);
 void calculateLDneutralSitesOnly(void);
 void calculateLDselectedSitesOnly(void);
 void makeZygoteChromosomes(int parent, short int *ogtpt);
@@ -267,6 +270,7 @@ double calculateMaxPossibleFitness(int patchNum);
 double calculateMinPossibleFitness(int patchNum);
 double calcVariance(double *valuesArray, long int n);
 void chooseDemeSample(int *sampleArray, int demeNumber, int nSamples);
+void collectDetailedTimeSample(void);
 int compare_doubles(const void *a, const void *b);
 int findNearestSelectedNeighbor(int focalLocus);
 void growEpistasisMatrix(void);
@@ -357,7 +361,7 @@ main(int argc, char *argv[])
     int ch, foo = 0, nSamples = 200;
     char *progname = argv[0];
     _Bool keepTrying = 1, mWasIncremented;
-    int gatherLDvalues = 1;
+    int gatherLDvalues = 0;
     FILE *nVarTS, *DXYTS;
     struct timeval tod;
     unsigned long startTime, elapsedTime;
@@ -1587,7 +1591,7 @@ void calculateFitnesses(double *f, double *fsum)
 }
 
 
-void calculateLD(void)
+void calculateLD(int gatherLDvalues)
 {
 	int i, j, locus, l1, l2, lociToUse[nVariableLoci];
 	long int id1, id2;
@@ -1608,46 +1612,80 @@ void calculateLD(void)
 	}
 	
 	
-	
-	if ( totalVariable > 1 ) {
-		
-		Dvals = (double *) malloc( sizeof(double) * (totalVariable * (totalVariable - 1) / 2) );
-		DprimeVals = (double *) malloc( sizeof(double) * (totalVariable * (totalVariable - 1) / 2) );
-		DeltaVals = (double *) malloc( sizeof(double) * (totalVariable * (totalVariable - 1) / 2) );
-		dpt1 = Dvals;
-		dpt2 = DprimeVals;
-		dpt3 = DeltaVals;
-		
-		for ( i = 0; i < (totalVariable - 1); i++ ) {
-			l1 = lociToUse[i];
-			id1 = locusID[l1];
-			for ( j = (i+1); j < totalVariable; j++ ) {
-				l2 = lociToUse[j];
-				id2 = locusID[l2];
-				
-				if ( (id1 % LD_LOCI_SUBSAMPLE == 0) && (id2 % LD_LOCI_SUBSAMPLE == 0) ) {
-					if ( chromosomeMembership[l1] == chromosomeMembership[l2] )
-						dist = fabs( MAP[l2] - MAP[l1] );
-					else 
-						dist = -1.0;
-					
-					calculateLDpair(l1,l2,dist, dpt1, dpt2, dpt3);
-                    totNum++;
-					dpt1++;
-					dpt2++;
-					dpt3++;
-				}
-			}
-		}
-		
-		fprintf(effMigRates, " %E %E %E %E %E %E\n", calcMeanMagnitude(Dvals, totNum), calcVariance(Dvals, totNum), calcMeanMagnitude(DprimeVals, totNum), calcVariance(DprimeVals, totNum), calcMeanMagnitude(DeltaVals, totNum), calcVariance(DeltaVals, totNum) );
-		
-		free(Dvals);
-		free(DprimeVals);
-		free(DeltaVals);
-	}
-    else 
-		fprintf(effMigRates, " 0.0 0.0 0.0 0.0 0.0 0.0\n");
+    if ( gatherLDvalues == 2 ) {
+        if ( totalVariable > 1 ) {
+            
+            Dvals = (double *) malloc( sizeof(double) * (totalVariable * (totalVariable - 1) / 2) );
+            DprimeVals = (double *) malloc( sizeof(double) * (totalVariable * (totalVariable - 1) / 2) );
+            DeltaVals = (double *) malloc( sizeof(double) * (totalVariable * (totalVariable - 1) / 2) );
+            dpt1 = Dvals;
+            dpt2 = DprimeVals;
+            dpt3 = DeltaVals;
+            
+            for ( i = 0; i < (totalVariable - 1); i++ ) {
+                l1 = lociToUse[i];
+                id1 = locusID[l1];
+                for ( j = (i+1); j < totalVariable; j++ ) {
+                    l2 = lociToUse[j];
+                    id2 = locusID[l2];
+                    
+                    if ( (id1 % LD_LOCI_SUBSAMPLE == 0) && (id2 % LD_LOCI_SUBSAMPLE == 0) ) {
+                        if ( chromosomeMembership[l1] == chromosomeMembership[l2] )
+                            dist = fabs( MAP[l2] - MAP[l1] );
+                        else
+                            dist = -1.0;
+                        
+                        calculateLDpair(l1,l2,dist, dpt1, dpt2, dpt3, gatherLDvalues);
+                        totNum++;
+                        dpt1++;
+                        dpt2++;
+                        dpt3++;
+                    }
+                }
+            }
+            
+            fprintf(effMigRates, " %E %E %E %E %E %E\n", calcMeanMagnitude(Dvals, totNum), calcVariance(Dvals, totNum), calcMeanMagnitude(DprimeVals, totNum), calcVariance(DprimeVals, totNum), calcMeanMagnitude(DeltaVals, totNum), calcVariance(DeltaVals, totNum) );
+            
+            free(Dvals);
+            free(DprimeVals);
+            free(DeltaVals);
+        }
+        else 
+            fprintf(effMigRates, " 0.0 0.0 0.0 0.0 0.0 0.0\n");
+    }
+    else if ( gatherLDvalues == 3 ) {
+        if ( totalVariable > 1 ) {
+            
+            DeltaVals = (double *) malloc( sizeof(double) * (totalVariable * (totalVariable - 1) / 2) );
+            dpt3 = DeltaVals;
+            
+            for ( i = 0; i < (totalVariable - 1); i++ ) {
+                l1 = lociToUse[i];
+                id1 = locusID[l1];
+                for ( j = (i+1); j < totalVariable; j++ ) {
+                    l2 = lociToUse[j];
+                    id2 = locusID[l2];
+                    
+                    if ( (id1 % LD_LOCI_SUBSAMPLE == 0) && (id2 % LD_LOCI_SUBSAMPLE == 0) ) {
+                        if ( chromosomeMembership[l1] == chromosomeMembership[l2] )
+                            dist = fabs( MAP[l2] - MAP[l1] );
+                        else
+                            dist = -1.0;
+                        
+                        calculateLDpair(l1,l2,dist, dpt1, dpt2, dpt3, gatherLDvalues);
+                        totNum++;
+                        dpt3++;
+                    }
+                }
+            }
+            free(DeltaVals);
+        }
+        else {
+            //need to do stuff in case there are no variable loci
+            fprintf(stderr, "\nError in calculateLD(): Hey yo, need to do some stuff for gatherLDvalues == 3 when there are no variable!\n");
+            exit(0);
+        }
+    }
 	
 }
 
@@ -1795,7 +1833,7 @@ void calculateLDselectedSitesOnly(void)
 }
 
 
-void calculateLDpair(int l1, int l2, double dist, double *Dvals, double *DprimeVals, double *DeltaVals)
+void calculateLDpair(int l1, int l2, double dist, double *Dvals, double *DprimeVals, double *DeltaVals, int gatherLDvalues)
 {
 	int i, j;
 	double zz = 0.0, oo = 0.0, zo = 0.0, oz = 0.0; 
@@ -1851,17 +1889,21 @@ void calculateLDpair(int l1, int l2, double dist, double *Dvals, double *DprimeV
 	else 
 		Dmax = fmin( (A * B), ((1.0 - A) * (1.0 - B)) );
 	
-	Dprime = DD / Dmax;
 	
 	Delta = DD / sqrt( A * B * (1.0 - A) * (1.0 - B) );
-	if ( RECORD_LD_VALUES && BeginRecordingLD ) {
-		if ( fabs(DD) > LD_LowerBound ) {
-			fprintf(LDfpt, "%li %li %li %E %E %E %E %E %E %i %i\n", totalGenerationsElapsed, locusID[l1], locusID[l2], DD, Dprime, Delta, dist, S_MAX1[l1], S_MAX1[l2], IS_SELECTED_LOCUS[l1], IS_SELECTED_LOCUS[l2]);
-		}
-	}
     
-    *Dvals = DD;
-    *DprimeVals = Dprime;
+    if ( gatherLDvalues == 2 ) {
+        if ( RECORD_LD_VALUES && BeginRecordingLD ) {
+            if ( fabs(DD) > LD_LowerBound ) {
+                fprintf(LDfpt, "%li %li %li %E %E %E %E %E %E %i %i\n", totalGenerationsElapsed, locusID[l1], locusID[l2], DD, Dprime, Delta, dist, S_MAX1[l1], S_MAX1[l2], IS_SELECTED_LOCUS[l1], IS_SELECTED_LOCUS[l2]);
+            }
+        }
+        
+        Dprime = DD / Dmax;
+        
+        *Dvals = DD;
+        *DprimeVals = Dprime;
+    }
     *DeltaVals = Delta;
 }
 
@@ -3845,12 +3887,14 @@ void calcExpectedME(double *fitpt, double *fitsumpt, int gatherLDvalues)
         calculateLDselectedSitesOnly();
         calculateLDneutralSitesOnly();
     }
+    else if ( gatherLDvalues > 1 )
+        calculateLD( gatherLDvalues );
     
-    if ( gatherLDvalues == 2 )
-        calculateLD();
-    
-    if ( gatherLDvalues < 2 )
+    if ( gatherLDvalues != 2 )
         fprintf(effMigRates, " 0.0 0.0 0.0 0.0 0.0 0.0\n");
+    
+    
+    
     
 	if ( (totalGenerationsElapsed > END_PERIOD_ALLOPATRY) && (m > 100) ) {
         if ( approachingSpeciationThreshold ) {
@@ -4404,6 +4448,18 @@ void chooseDemeSample(int *sampleArray, int demeNumber, int nSamples)
             exit(-1);
         }
     }
+}
+
+
+void collectDetailedTimeSample(void)
+{
+    char dirname[80], counterString[10];
+    
+    timeSampleCounter++;
+    sprintf(counterString, "%d", timeSampleCounter); // sample number as a character string
+    sprintf(dirname, "TimeSample%d", timeSampleCounter);
+    mkdir(dirname, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH );
+    
 }
 
 
