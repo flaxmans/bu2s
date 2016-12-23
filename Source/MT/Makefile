@@ -20,8 +20,7 @@
 WARN = -Wmissing-prototypes -Wall #-Winline 
 #WARN = -Wmissing-prototypes -Wall -W
 OPTI = -O3 -finline-functions -fomit-frame-pointer -DNDEBUG \
--fno-strict-aliasing --param max-inline-insns-single=1800
---param inline-unit-growth=500 --param large-function-growth=900 #for gcc 4
+-fno-strict-aliasing --param max-inline-insns-single=1800 \
 --param inline-unit-growth=500 --param large-function-growth=900 #for gcc 4
 #STD =
 #STD = -std=c89 -pedantic
