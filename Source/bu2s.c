@@ -5283,7 +5283,7 @@ long int setTSfreq(void)
 {
     double tsf, maxGen;
     long int et;
-    int i;
+    int i, dum;
     long int incr;
     FILE *recTimesFile;
     
@@ -5331,7 +5331,7 @@ long int setTSfreq(void)
             //                exit(-1);
             //            }
         }
-        fscanf(recTimesFile, "%i", &nRecordingTimes);
+        dum = fscanf(recTimesFile, "%i", &nRecordingTimes);
         vectorOfRecordingTimes = (long int *) malloc( nRecordingTimes * sizeof(long int) );
         for ( i = 0; i < nRecordingTimes; i++ ) {
             if ( feof(recTimesFile) ) {
@@ -5339,7 +5339,7 @@ long int setTSfreq(void)
                 exit(-1);
             }
             else
-                fscanf( recTimesFile, "%li", (vectorOfRecordingTimes+i) );
+                dum = fscanf( recTimesFile, "%li", (vectorOfRecordingTimes+i) );
             
             if ( vectorOfRecordingTimes[i] < 0 ) {
                 printf("\n\tError in setTSfreq():\n\t\tNegative time in rec times in file!\n");
