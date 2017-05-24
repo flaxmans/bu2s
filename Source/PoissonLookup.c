@@ -2,12 +2,16 @@
 // for the number of recombination events in the BU2S simulation
 // goal is to remove calls of log() that were in makeZygoteChromosomes()
 
+// you can compile this file on its own with the following command:
+// gcc -lm -I/usr/local/include/gsl -L/usr/local/lib -lgsl -lgslcblas -O3 -o PoissonLookup PoissonLookup.c
 
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <gsl_rng.h>            // gnu scientific library //
+#include <gsl_randist.h>        // gnu scientific library //
+#include <gsl_cdf.h>		// needed for making the Poisson lookup table
 #include "bu2s.h"
-
 
 
 // functions defined in this .c file
@@ -15,18 +19,11 @@ double * makePoissonLookup(int *maxNumAddress);
 int lookupPoissonValue (double *poissonTable);
 
 
-
 //////////////////////////////
-// begin section of test stuff:
-
-// you can compile this file on its own with the following command:
-// gcc -lm -I/usr/local/include/gsl -L/usr/local/lib -lgsl -lgslcblas -O3 -o PoissonLookup PoissonLookup.c
+// begin section of TEST CODE:
 
 #define METHOD 1 // "1" for lookup table inverse CDF method; "2" for using the Poisson rng from the gsl
 #define TOTAL_MAP_LENGTH 1000.0 // this is here so we can compile without linking to bu2s.c for now
-#include <gsl_rng.h>            // gnu scientific library //
-#include <gsl_randist.h>        // gnu scientific library //
-#include <gsl_cdf.h>
 const gsl_rng_type *rngType;    /* generator type */
 gsl_rng *rngState;              /* rng instance */
 
@@ -69,7 +66,7 @@ int main(void) {
 	
 	return 0;
 }
-// end of this section of test stuff
+// end of this section of test code
 ///////////////////////////////
 
 
