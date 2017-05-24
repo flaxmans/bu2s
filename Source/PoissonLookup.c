@@ -14,9 +14,6 @@
 #include "bu2s.h"
 
 
-// functions defined in this .c file
-double * makePoissonLookup(int *maxNumAddress);
-int lookupPoissonValue (double *poissonTable);
 
 
 //////////////////////////////
