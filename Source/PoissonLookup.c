@@ -106,7 +106,7 @@ int lookupPoissonValue (double *poissonTable) {
 	// this is an inverse CDF function using a truncated Poisson.
 	int i = 0;
 	double testVal;
-	testVal = gsl_rng_uniform(rngState); // generate value for lookup; uses randU() defined in bu2s.c
+	testVal = gsl_rng_uniform(rngState); // generate value for lookup
 	
 	while ( testVal > (*(poissonTable + i)) )
 		i++;
