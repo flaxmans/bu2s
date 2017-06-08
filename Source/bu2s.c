@@ -7,7 +7,7 @@
  *
  */
 
-const char *version = "bu2s_3.6.1";
+const char *version = "bu2s_3.7.0";
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -21,17 +21,14 @@ const char *version = "bu2s_3.6.1";
 #include <sys/stat.h>
 
 #include "MT/dSFMT.h"
+#include "bu2s.h"
 
 int loci_count_0 = 0;
 int loci_count_1 = 0;
 int loci_count_2 = 0;
 int loci_count_many = 0;
 
-// code for using Mersenne Twister RNG
-dsfmt_t dsfmt;
-#define seedRand(s) dsfmt_init_gen_rand(&dsfmt, s)
-#define	randU() dsfmt_genrand_close_open(&dsfmt)
-#define	randI() (unsigned)dsfmt_genrand_uint32(&dsfmt)
+
 
 
 // constants that have to be set here in source code
@@ -193,6 +190,8 @@ _Bool *is_reversed_locus;
 _Bool *REVERSAL_SEQUENCE;
 _Bool *any_epis_for_this_locus;
 double *epi_coeff_matrix;
+double *poissonTable; // for Poisson lookup table
+unsigned int maxNumCOs;
 
 
 // other globals
@@ -574,7 +573,8 @@ main(int argc, char *argv[])
     
     
     // get to work
-    
+	
+	maxNumCOs = makePoissonLookup();
     setUpMap();
     setUpMutationSequence();
     
@@ -2060,8 +2060,10 @@ double calculateLDpairOneOff(int l1, int l2)
 void makeZygoteChromosomes(int parent, short int *ogtpt)
 {
     int i, j, l, csome, ncos, nl, firstl, lastl, co_count, count;
+	int totalCOcount;
     short int *ppt, *opt, *startpt;
     double ml, co, spot; // lastco;
+	double crossoverLocations[maxNumCOs];
     
     opt = ogtpt; // pointer to first allele that offspring will get for first locus of chromosome
     
@@ -2170,7 +2172,20 @@ void makeZygoteChromosomes(int parent, short int *ogtpt)
     }
     
     else { // linkage matters --> DH and GH (-G 0 on command line)
-        // get starting chromosome
+		// get number of crossovers events:
+		totalCOcount = lookupPoissonValue();
+		// get crossover locations:
+		if ( totalCOcount > 0 ) {
+			dsfmt_fill_array_open_open( dsfmt, crossoverLocations, totalCOcount); // get a vector of random numbers
+			for ( i = 0; i < totalCOcount; i++ ) {
+				crossoverLocations[i] = crossoverLocations[i] * TOTAL_MAP_LENGTH; // scale
+				
+			}
+		}
+		else
+			crossoverLocations[0] = TOTAL_MAP_LENGTH + 1.0;
+		
+		// get starting chromosome
         count = 0;
         firstl = 1; // array element to start with (0 taken care of manually before relvant for loop)
         lastl = LOCI_PER_CHROMOSOME[0];

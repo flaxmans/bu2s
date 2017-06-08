@@ -5,11 +5,20 @@
 // placed here to avoid magic numbers (and eventually clean up the bu2s.c file a bit)
 #define CENTIMORGANS 100.0 // expected map distance between consecutive recombination events
 
+#include "MT/dSFMT.h"			// Mersenne Twister library //
+// code for using Mersenne Twister RNG
+dsfmt_t *dsfmt;
+#define seedRand(s) dsfmt_init_gen_rand(dsfmt, s)
+#define	randU() dsfmt_genrand_close_open(dsfmt)
+#define	randI() (unsigned)dsfmt_genrand_uint32(dsfmt)
+
 // globals defined in bu2s.c but needed in other files
 extern double TOTAL_MAP_LENGTH;
-extern gsl_rng *rngState;
+extern dsfmt_t *dsfmt;
+extern double *poissonTable;
 
 // function prototypes from other .c files
 // these from PoissonLookup.c:
-double * makePoissonLookup(int *maxNumAddress);
-int lookupPoissonValue(double *poissonTable);
+unsigned int makePoissonLookup(void);
+int lookupPoissonValue(void);
+void getCrossoverLocations(double *crossoverLocations);

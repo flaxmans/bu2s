@@ -1,4 +1,4 @@
-CCFLAGS = -O3
+CCFLAGS = -lm -I/usr/local/include/gsl -L/usr/local/lib -lgsl -lgslcblas -g
 TARGET = bu2s
 
 #
@@ -11,8 +11,8 @@ CC = gcc
 #
 # Rule for linking together the object files needed for our program
 #
-${TARGET}: ${TARGET}.o MT/dSFMT.o
-	${CC} ${CCFLAGS} -o $@ MT/dSFMT.o ${TARGET}.o -lm
+${TARGET}: ${TARGET}.o MT/dSFMT.o PoissonLookup.o
+	${CC} ${CCFLAGS} -o $@ MT/dSFMT.o PoissonLookup.o ${TARGET}.o -lm
 
 #
 # Rule for how the MT code gets build.  Just go to that directory and
@@ -20,6 +20,9 @@ ${TARGET}: ${TARGET}.o MT/dSFMT.o
 #
 MT/dSFMT.o: 
 	cd MT; make dSFMT.o
+
+PoissonLookup.o:
+	${CC} -DDSFMT_MEXP=19937 -I/usr/local/include/gsl -o PoissonLookup.o PoissonLookup.c
 
 #
 # Default rule for how a .o (object) file gets built from a .c file
