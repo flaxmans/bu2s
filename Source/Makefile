@@ -22,7 +22,7 @@ MT/dSFMT.o:
 	cd MT; make dSFMT.o
 
 PoissonLookup.o:
-	${CC} -DDSFMT_MEXP=19937 -I/usr/local/include/gsl -o PoissonLookup.o PoissonLookup.c
+	${CC} -c -I/usr/local/include/gsl -o PoissonLookup.o PoissonLookup.c
 
 #
 # Default rule for how a .o (object) file gets built from a .c file

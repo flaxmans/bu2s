@@ -12,7 +12,7 @@
 #include <gsl_randist.h>        // gnu scientific library //
 #include <gsl_cdf.h>		// needed for making the Poisson lookup table
 #include "bu2s.h"
-#include "MT/dSFMT.h"
+//#include "MT/dSFMT.h"
 
 
 
