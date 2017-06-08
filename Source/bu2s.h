@@ -8,13 +8,13 @@
 #include "MT/dSFMT.h"			// Mersenne Twister library //
 // code for using Mersenne Twister RNG
 dsfmt_t *dsfmt;
+extern dsfmt_t *dsfmt; // rng state needs to be known everywhere
 #define seedRand(s) dsfmt_init_gen_rand(dsfmt, s)
 #define	randU() dsfmt_genrand_close_open(dsfmt)
 #define	randI() (unsigned)dsfmt_genrand_uint32(dsfmt)
 
 // globals defined in bu2s.c but needed in other files
 extern double TOTAL_MAP_LENGTH;
-extern dsfmt_t *dsfmt;
 extern double *poissonTable;
 
 // function prototypes from other .c files
