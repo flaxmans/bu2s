@@ -48,7 +48,7 @@ int loci_count_many = 0;
 #define DETERMINISTIC_DEFAULT 1
 #define nGENERATIONS_MAX_DEFAULT 1 // number of generations between mutations
 #define nMUTATIONS_DEFAULT 15000000
-#define MUTATIONS_PER_GENERATION_DEFAULT 1
+#define MUTATIONS_PER_GENERATION_DEFAULT 10
 #define INITIAL_CONDITIONS_DEFAULT 0
 #define INITIAL_POPULATION_SIZE_DEFAULT 4000
 #define MEAN_S_DEFAULT 0.01 // mean value of selection coefficients drawn from -exponential distribution
@@ -575,7 +575,7 @@ main(int argc, char *argv[])
     // get to work
 	
 	maxNumCOs = makePoissonLookup();
-    setUpMap();
+	setUpMap();
     setUpMutationSequence();
     
     initializePopulation();
@@ -2063,7 +2063,8 @@ void makeZygoteChromosomes(int parent, short int *ogtpt)
 	int totalCOcount;
     short int *ppt, *opt, *startpt;
     double ml, co, spot; // lastco;
-	double crossoverLocations[maxNumCOs];
+	double crossoverLocations[(maxNumCOs + 1)];
+	double mapDistanceAdd;
     
     opt = ogtpt; // pointer to first allele that offspring will get for first locus of chromosome
     
@@ -2176,11 +2177,12 @@ void makeZygoteChromosomes(int parent, short int *ogtpt)
 		totalCOcount = lookupPoissonValue();
 		// get crossover locations:
 		if ( totalCOcount > 0 ) {
-			dsfmt_fill_array_open_open( dsfmt, crossoverLocations, totalCOcount); // get a vector of random numbers
+			//dsfmt_fill_array_open_open( &dsfmt, crossoverLocations, totalCOcount); // get a vector of random numbers
 			for ( i = 0; i < totalCOcount; i++ ) {
-				crossoverLocations[i] = crossoverLocations[i] * TOTAL_MAP_LENGTH; // scale
-				
+				crossoverLocations[i] = randU() * TOTAL_MAP_LENGTH; // scale
 			}
+			qsort(crossoverLocations, totalCOcount, sizeof(double), compare_doubles);
+			crossoverLocations[totalCOcount] = TOTAL_MAP_LENGTH + 1.0;
 		}
 		else
 			crossoverLocations[0] = TOTAL_MAP_LENGTH + 1.0;
@@ -2190,6 +2192,9 @@ void makeZygoteChromosomes(int parent, short int *ogtpt)
         firstl = 1; // array element to start with (0 taken care of manually before relvant for loop)
         lastl = LOCI_PER_CHROMOSOME[0];
         startpt = genotypes + ( 2 * nLOCI * parent ); // pointer to first allele, first chrom, first locus of parent
+		co = crossoverLocations[0]; // first location
+		co_count = 0; // no crossovers yet
+		mapDistanceAdd = 0.0;  // to make the map spots cumulative below where "spot" is used
         for ( i = 0; i < nCHROMOSOMES; i++ ) {
             ppt = startpt;
             nl = LOCI_PER_CHROMOSOME[i];
@@ -2208,10 +2213,10 @@ void makeZygoteChromosomes(int parent, short int *ogtpt)
             
             //
             // First check the simple/fast case where we're sure
-            // there are no variable loci.
+            // there are no variable loci or no crossovers.
             //
-            if (nVariableLoci == 0) {
-                co = randU(); // deterministic
+            if ( !nVariableLoci || !totalCOcount ) {
+                //co = randU(); // deterministic
                 for (l = firstl; l < lastl; l++ ) {
                     ppt += 2;
                     *opt = (*ppt); // put the allele in the offspring's genome
@@ -2219,20 +2224,23 @@ void makeZygoteChromosomes(int parent, short int *ogtpt)
                 }
             }
             else {
-                co = (log(1.0 - randU())) * (-50.0); // crossovers are i.i.d. with a mean of 50 cM between them
-                
                 for ( l = firstl; l < lastl; l++ ) { // one locus at a time for this chromosome
                     if ( variable_loci[l] ) { // crossovers may actually matter for choosing alleles
-                        spot = MAP[l];
+                        spot = MAP[l] + mapDistanceAdd;
                         if ( co < spot ) { // location of crossover is before this locus
-                            co_count = 0;
-                            while ( co < spot ) { // allow for MULTIPLE crossovers betweeen consecutive loci; hence the while loop
-                                //lastco = co; // just for testing
-                                co += (log(1.0 - randU())) * (-50.0); // spot for NEXT crossover
-                                co_count++; // count number of crossovers between last locus l-1 and next locus l
-                            }
-                            if ( (co_count % 2) == 1 ) { // if number is odd
-                                if ( csome ) {
+							ncos = 0; // number of crossover events here
+							//fprintf(stderr, "\nCO happening at co = %f, spot = %f, locus = %i, chrom = %i\n", co, spot, l, i);
+							
+							do {
+								ncos++; // count this one
+								co_count++; // increment cumulative number of crossing over events here
+								co = crossoverLocations[co_count]; // next location
+							} while ( co < spot );
+							
+							//fprintf(stderr, "\nCO happened! ncos = %i, co_count = %i\n", ncos, co_count);
+							
+                            if ( (ncos % 2) == 1 ) { // if number is odd
+								if ( csome ) {
                                     csome = 0;
                                     ppt++; // only have to advance 1 spot forward to get to 0 allele on this chromosome from 1 allele on last one
                                 }
@@ -2241,8 +2249,9 @@ void makeZygoteChromosomes(int parent, short int *ogtpt)
                                     ppt += 3; // have to advance pointer 3 to go from 0 allele on last chromosome to 1 allele on this chromosome
                                 }
                             }
-                            else // even number of C-Os is same as none at all
-                                ppt += 2;
+							else { // even number of C-Os is same as none at all
+								ppt += 2;
+							}
                             //fprintf(stderr, "\n%i crossovers on chrom. %i. last at %G before locus %i at map loc. %G", co_count, i, lastco, l, MAP[l]);
                         }
                         else // no crossover
@@ -2250,21 +2259,34 @@ void makeZygoteChromosomes(int parent, short int *ogtpt)
                     }
                     else // there is only one type of allele; save time by copying one
                         ppt += 2;
-                    
+				
                     *opt = (*ppt); // offspring gets selected allele
                     //				count++;
                     //				fprintf(stderr, "Count = %i, off allele = %i, parent allele = %i\n",count, (*opt),(*ppt));
                     opt += 2; // increment offspring pointer.
                 }
-                if ( i < (nCHROMOSOMES-1) ) { // if we are going through the loop again
-                    startpt = startpt + ( 2 * nl ); // pointer to first allele on next chromosome of the PARENT
-                    firstl = lastl + 1;
-                    lastl = lastl + LOCI_PER_CHROMOSOME[(i+1)];
-                }
+				
             }
+			if ( i < (nCHROMOSOMES-1) ) { // if we are going through the loop again
+				startpt = startpt + ( 2 * nl ); // pointer to first allele on next chromosome of the PARENT
+				firstl = lastl + 1;
+				lastl = lastl + LOCI_PER_CHROMOSOME[(i+1)];
+			}
+			mapDistanceAdd += MAP_LENGTHS[i]; // make the sum of lengths cumulative
+			while ( co < mapDistanceAdd && co_count < totalCOcount) { // move to next chromsosome in case numbers weren't used because of lack of variable loci
+				co_count++; // increment cumulative number of crossing over events here
+				co = crossoverLocations[co_count]; // next location
+			}
         }
     }
-    //	exit(0);
+//	if ( totalCOcount ) {
+//		fprintf(stderr, "\nCrossing Over locations:");
+//		for ( i = 0; i < totalCOcount; i++ )
+//			fprintf(stderr, "\t%f", crossoverLocations[i]);
+//		fprintf(stderr, "\n");
+//		exit(0);
+//	}
+	
 }
 
 

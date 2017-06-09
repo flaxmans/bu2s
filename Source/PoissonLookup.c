@@ -2,13 +2,10 @@
 // for the number of recombination events in the BU2S simulation
 // goal is to remove calls of log() that were in makeZygoteChromosomes()
 
-#include <math.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <gsl_randist.h>        // gnu scientific library //
-#include <gsl_cdf.h>		// needed for making the Poisson lookup table
-#include "bu2s.h"
-
+#include <gsl_cdf.h>			// needed for making the Poisson lookup table
+#include "bu2s.h"				// header file for bu2s program
 
 // the "makePoissonLookup()" function: make the lookup table; this would be called ONCE
 // during initialization phase of the program:
