@@ -19,6 +19,9 @@
 
 WARN = -Wmissing-prototypes -Wall #-Winline 
 #WARN = -Wmissing-prototypes -Wall -W
+# following is for debugging; comment it out and uncomment the following one for regular use
+#OPTI = -g
+# next line is for regular use; comment out and uncomment previous line for debugging:
 OPTI = -O3 -finline-functions -fomit-frame-pointer -DNDEBUG \
 -fno-strict-aliasing --param max-inline-insns-single=1800 \
 --param inline-unit-growth=500 --param large-function-growth=900 #for gcc 4
