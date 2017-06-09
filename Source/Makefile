@@ -1,4 +1,4 @@
-CCFLAGS = -g
+CCFLAGS = -O3
 GSLFLAGS = -lm -I/usr/local/include/gsl -L/usr/local/lib -lgsl -lgslcblas
 TARGET = bu2s
 
