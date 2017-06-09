@@ -38,7 +38,6 @@ unsigned int makePoissonLookup(void) {
 }
 
 
-
 int lookupPoissonValue (void) {
 	// this function would be called every time a total number of recombinations events was needed
 	// this is an inverse CDF function using a truncated Poisson.
@@ -51,5 +50,49 @@ int lookupPoissonValue (void) {
 	
 	return(i);
 }
+
+
+void getCrossoverLocations(int totalCOcount, double *crossoverLocations) {
+	
+	int i;
+	
+	if ( totalCOcount > 0 ) {
+		//dsfmt_fill_array_open_open( &dsfmt, crossoverLocations, totalCOcount); // get a vector of random numbers
+		for ( i = 0; i < totalCOcount; i++ ) {
+			crossoverLocations[i] = randU() * TOTAL_MAP_LENGTH; // multiplication for scale
+		}
+		// two possible sorting algorithms; insertion sort may be marginally faster based on limited testing
+		//qsort(crossoverLocations, totalCOcount, sizeof(double), compare_doubles);
+		myInsertSort(crossoverLocations, totalCOcount);
+		crossoverLocations[totalCOcount] = TOTAL_MAP_LENGTH + 1.0;
+	}
+	else
+		crossoverLocations[0] = TOTAL_MAP_LENGTH + 1.0;
+}
+
+
+void myInsertSort(double * array, int numElements) {
+	
+	// code modified from: http://www.programmingsimplified.com/c/source-code/c-program-insertion-sort
+	// accessed 6/9/17
+	int c, d, d1;
+	double foo;
+	
+	for (c = 1; c < numElements; c++) {
+		
+		d = c;
+		d1 = d - 1;
+		
+		while ( d > 0 && *(array + d) < *(array + d1) ) {
+			foo = *(array + d);
+			*(array + d) = *(array + d1);
+			*(array + d1) = foo;
+			d--;
+			d1--;
+		}
+		
+	}
+}
+
 
 

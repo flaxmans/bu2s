@@ -282,7 +282,6 @@ double calculateMinPossibleFitness(int patchNum);
 double calcVariance(double *valuesArray, long int n);
 void chooseDemeSample(int *sampleArray, int demeNumber, int nSamples);
 //void collectDetailedTimeSample(void);
-int compare_doubles(const void *a, const void *b);
 int findNearestSelectedNeighbor(int focalLocus);
 void growEpistasisMatrix(void);
 void initializePopulation(void);
@@ -2176,16 +2175,7 @@ void makeZygoteChromosomes(int parent, short int *ogtpt)
 		// get number of crossovers events:
 		totalCOcount = lookupPoissonValue();
 		// get crossover locations:
-		if ( totalCOcount > 0 ) {
-			//dsfmt_fill_array_open_open( &dsfmt, crossoverLocations, totalCOcount); // get a vector of random numbers
-			for ( i = 0; i < totalCOcount; i++ ) {
-				crossoverLocations[i] = randU() * TOTAL_MAP_LENGTH; // scale
-			}
-			qsort(crossoverLocations, totalCOcount, sizeof(double), compare_doubles);
-			crossoverLocations[totalCOcount] = TOTAL_MAP_LENGTH + 1.0;
-		}
-		else
-			crossoverLocations[0] = TOTAL_MAP_LENGTH + 1.0;
+		getCrossoverLocations(totalCOcount, crossoverLocations);
 		
 		// get starting chromosome
         count = 0;

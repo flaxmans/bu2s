@@ -21,4 +21,8 @@ extern double *poissonTable;
 // these from PoissonLookup.c:
 unsigned int makePoissonLookup(void);
 int lookupPoissonValue(void);
-void getCrossoverLocations(double *crossoverLocations);
+void getCrossoverLocations(int totalCOcount, double *crossoverLocations);
+void myInsertSort(double * array, int numElements);
+
+// from bu2s.c
+int compare_doubles(const void *a, const void *b);
