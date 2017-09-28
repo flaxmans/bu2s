@@ -22,7 +22,7 @@ extern double *poissonTable;
 unsigned int makePoissonLookup(void);
 int lookupPoissonValue(void);
 void getCrossoverLocations(int totalCOcount, double *crossoverLocations);
-void myInsertSort(double * array, int numElements);
+void myInsertSort(double *a, int l, int r);
 
 // from bu2s.c
 int compare_doubles(const void *a, const void *b);
