@@ -16,6 +16,7 @@ System Requirements for compiling and running the program:
 
 * a Linux/UNIX-style terminal or terminal emulator
 * a C compiler (gcc is the default in the Makefile)
+* the [GNU Scientific Library](https://www.gnu.org/software/gsl/)
 * make
 
 To use:
