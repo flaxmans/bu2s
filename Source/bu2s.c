@@ -71,7 +71,7 @@ int loci_count_many = 0;
 #define BIG_START_S_VAL_DEFAULT 0.5 // if the previous bool is set to 1, then this is used
 // #define SECONDARY_CNTCT_MUTATIONS_DEFAULT -1 // set to -1 for primary contact; set to > 0 for secondary contact after a certain number of mutations.
 #define END_PERIOD_ALLOPATRY_DEFAULT -1 // replaces SECONDARY_CNTCT_MUTATIONS_DEFAULT
-#define PERIOD_ALLOPATRY 1000
+#define PERIOD_ALLOPATRY_DEFAULT 1000
 #define START_PERIOD_ALLOPATRY_DEFAULT -1
 #define DMI_MEAN_EFFECT_DEFAULT 0.0 // proportional reduction in fitness arising from negative epistatic interaction
 #define DMI_PROB_DEFAULT 0.0 // proportion of pairs of loci at which a negative epistatic interaction arises.
@@ -151,6 +151,7 @@ double DEME1_CONSTANT_S = DEME1_CONSTANT_S_DEFAULT;
 double FRACTION_SELECTED_LOCI = FRACTION_SELECTED_LOCI_DEFAULT;
 _Bool PURE_NEUTRAL_MODEL = PURE_NEUTRAL_MODEL_DEFAULT;
 _Bool PURE_ALLOPATRY_MODEL = PURE_ALLOPATRY_MODEL_DEFAULT;
+int PERIOD_ALLOPATRY = PERIOD_ALLOPATRY_DEFAULT;
 
 
 
@@ -381,7 +382,7 @@ main(int argc, char *argv[])
     _Bool keepGoing = 1, equilibriumReached = 0; // while loop variables
     long int mutationsThisTime, mtt;
     
-    while ((ch = getopt(argc, argv, "A:a:B:b:C:c:D:d:E:e:F:f:G:g:H:h:I:i:K:L:l:M:m:N:n:O:P:p:R:rS:s:T:t:U:u:V:W:w:Z:?")) != -1) {
+    while ((ch = getopt(argc, argv, "A:a:B:b:C:c:D:d:E:e:F:f:G:g:H:h:I:i:J:K:L:l:M:m:N:n:O:P:p:R:rS:s:T:t:U:u:V:W:w:Z:?")) != -1) {
         switch (ch) {
             case 'A':
                 END_PERIOD_ALLOPATRY = atoi(optarg);
@@ -436,6 +437,9 @@ main(int argc, char *argv[])
                 break;
             case 'i':
                 POSITIVE_EPI_PROBABILITY = strtod(optarg, (char **)NULL);
+                break;
+            case 'J':
+                PERIOD_ALLOPATRY = atoi(optarg);
                 break;
             case 'K':
                 K = strtod(optarg, (char **)NULL);
@@ -5847,15 +5851,26 @@ usage(char *s)
 {
     fprintf(stderr,  "Usage: %s [options]\n\n", s);
     
-    fprintf(stderr,  "\tNOTE: There is no error checking on user inputs.\n");
+    fprintf(stderr,  "\tNOTE: There is very little error checking on user inputs.\n");
     fprintf(stderr,  "\tProgram behavior is unpredictable (not defined) for\n");
     fprintf(stderr,  "\tinputs that do not conform to guidelines below.\n\n");
     
-    fprintf(stderr,  "\t[-A <integer>] \tLength of period of ALLOPATRY, expressed in\n");
-    fprintf(stderr,  "\t\t\tterms of numbers of mutations introduced (not necessarily\n");
-    fprintf(stderr,  "\t\t\taccumulated). Set to 0 for primary contact, i.e., divergence\n");
+    fprintf(stderr,  "\t[-A <integer>] \tGeneration when allopatry ends, expressed in\n");
+    fprintf(stderr,  "\t\t\tterms of numbers of generations elapsed.\n");
+    fprintf(stderr,  "\t\t\tSet to -1 for primary contact, i.e., divergence\n");
     fprintf(stderr,  "\t\t\twith constant gene flow, i.e., sympatry/parapatry.\n");
-    fprintf(stderr,  "\t\t\tDefault is %i mutations\n\n", END_PERIOD_ALLOPATRY_DEFAULT);
+    fprintf(stderr,  "\t\t\tDefault is %i generations.\n", END_PERIOD_ALLOPATRY_DEFAULT);
+    fprintf(stderr,  "\t\t\tNote that -A is for creating a basic secondary contact scenario.\n\t\t\t\For a period of allopatry in the middle of a simulation run,\n\t\t\tuse -a and -J below.\n\n");
+    
+    fprintf(stderr,  "\t[-a <integer>] \tWhen to start the period of allopatry, expressed in\n");
+    fprintf(stderr,  "\t\t\tterms of numbers of generations.\n");
+    fprintf(stderr,  "\t\t\tThis option is for creating a period of allopatry\n\t\t\tsomewhere in the MIDDLE of a simulation run.\n");
+    fprintf(stderr,  "\t\t\tIf you want a basic secondary contact scenario, use -A, above.\n");
+    fprintf(stderr,  "\t\t\tLeave set at default for primary contact or\n");
+    fprintf(stderr,  "\t\t\twhen using -A.   This option overrides -A.\n");
+    fprintf(stderr,  "\t\t\tThis should be used in conjunction with -J.\n");
+    fprintf(stderr,  "\t\t\tDefault is %i generations.\n\n", START_PERIOD_ALLOPATRY_DEFAULT);
+    
     
     fprintf(stderr,  "\t[-B <integer>] \tNumber of large-effect mutations to establish\n");
     fprintf(stderr,  "\t\t\tearly in a run.  Used with '-f 2' or '-b 1' (see below).\n");
@@ -5868,19 +5883,21 @@ usage(char *s)
     fprintf(stderr,  "\t[-C <integer>] \tNumber of chromosomes.\n");
     fprintf(stderr,  "\t\t\tDefault is %i\n\n",nCHROMOSOMES_DEFAULT);
     
-    fprintf(stderr,  "\t[-D]\t\tRun in deterministic mode.\n");
-    fprintf(stderr,  "\t\t\tWith -D, the random number seed\n");
+    fprintf(stderr,  "\t[-D <0 or 1>]\tRun in deterministic mode.\n");
+    fprintf(stderr,  "\t\t\tWith -D 1, the random number seed\n");
     fprintf(stderr,  "\t\t\tis read from the file 'RnumSeed.txt'.\n");
-    fprintf(stderr,  "\t\t\tWith -D, if 'RnumSeed.txt' is not\n");
-    fprintf(stderr,  "\t\t\tin the current wd, program will seg fault.\n");
-    fprintf(stderr,  "\t\t\tWithout -D, program will seed RNG with system time\n\n");
+    fprintf(stderr,  "\t\t\tWith -D 1, if 'RnumSeed.txt' is not\n");
+    fprintf(stderr,  "\t\t\tin the current wd, program will exit with an error message.\n");
+    fprintf(stderr,  "\t\t\tWith -D 0, the program will seed RNG with system time.\n");
+    fprintf(stderr,  "\t\t\tDefault is %i\n\n",DETERMINISTIC_DEFAULT);
     
     fprintf(stderr,  "\t[-d <sigma>] \tStandard deviation of dispersal distances.\n");
     fprintf(stderr,  "\t\t\tDefault is %G\n",SD_MOVE_DEFAULT);
     fprintf(stderr,  "\t\t\tRecall that the habitat is the unit line\n");
     fprintf(stderr,  "\t\t\tor unit square, so <sigma> is also the fraction\n");
     fprintf(stderr,  "\t\t\tof the habitat's width covered by a movement\n");
-    fprintf(stderr,  "\t\t\tof length <sigma> in one dimension.\n\n");
+    fprintf(stderr,  "\t\t\tof length <sigma> in one dimension.\n");
+    fprintf(stderr,  "\t\t\tNOTE: in 'two-deme mode' (see -e 1), -d specifies\n\t\t\tthe probability of migration.\n\n");
     
     fprintf(stderr,  "\t[-e <0 or 1>]\tRun in two deme mode with -e 1.\n");
     fprintf(stderr,  "\t\t\tDefault is %i\n",TWO_DEME_DEFAULT);
@@ -5889,7 +5906,7 @@ usage(char *s)
     fprintf(stderr,  "\t\t\tthe total number of patches is 2.\n");
     fprintf(stderr,  "\t\t\tThis option eliminates effects of\n");
     fprintf(stderr,  "\t\t\tcontinuous space and essentially creates\n");
-    fprintf(stderr,  "\t\t\ta two-patch island model.\n\n");
+    fprintf(stderr,  "\t\t\ta two-patch island model (see note in -d, above, also.\n\n");
     
     
     fprintf(stderr,  "\t[-F <0,1>] \tFixed population size\n");
@@ -5919,6 +5936,11 @@ usage(char *s)
     
     fprintf(stderr,  "\t[-i <value>] \tProportion of pairs of loci positive epistasis.\n");
     fprintf(stderr,  "\t\t\tDefault is %f.\n\n",POSITIVE_EPI_PROB_DEFAULT);
+    
+    fprintf(stderr,  "\t[-J <int>] \tLength of period of allopatry when using -a.\n");
+    fprintf(stderr,  "\t\t\tValue for -J is only used when -a value (above) is > 0\n");
+    fprintf(stderr,  "\t\t\tDefault is %\i\n\n",PERIOD_ALLOPATRY_DEFAULT);
+    
     
     fprintf(stderr,  "\t[-K <value>] \tCarrying capacity of each patch.\n");
     fprintf(stderr,  "\t\t\t<value> is only used if population is NOT fixed\n");
