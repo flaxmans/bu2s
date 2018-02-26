@@ -38,10 +38,9 @@ A list of command line options and their explanations can be obtained with the c
     $ ./bu2s -?
 
 
-This work is licensed under a Creative Commons Attribution 3.0 Unported License ([http://creativecommons.org/licenses/by/3.0/](http://creativecommons.org/licenses/by/3.0/)).
-You can use it for any purpose you wish, so long as you acknowledge the author and preserve any existing copyright notices in any copies you create or distribute.
+This work bu2s is distributed under the Creative Commons Attribution-NonCommercial 4.0 International License (CC BY-NC 4.0) [https://creativecommons.org/licenses/by-nc/4.0/](https://creativecommons.org/licenses/by-nc/4.0/).
 
-Absolutely NO warranty is implied for any portion of the code.  There are many options built into the code which have not yet been vetted.  Only those options used in the publications mentioned above should be considered to be reliable at this point in time.
+bu2s is distributed with no warranty whatsoever.  It does not have even an implied warranty of merchantability or fitness for particular purpose.
 
 Please email questions, comments, complaints, ideas, requests, and awesome cat pictures to samuel.flaxman@colorado.edu
 
