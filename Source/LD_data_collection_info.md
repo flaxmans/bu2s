@@ -45,11 +45,13 @@ if ( gatherLDvalues >= 1 ) {
 * nsnLD values are written to `selectedFrequencies` or `neutralFrequencies`
 
 
-## III. Which files have which data?
+## III. Which files have which LD data?
 | File Pointer | File Name | Condition of writing data | Description of data |
 | ------------- | ----------- | ----------------------------- | --------------------- |
-| `selectedFrequencies` | "SelectedAlleleFrequencies.txt" | always when `calculateAlleleFrequencies()` is called | nsnLD |
-| `neutralFrequencies` | "SelectedAlleleFrequencies.txt" | always when `calculateAlleleFrequencies()` is called | nsnLD |
+| `selectedFrequencies` | "SelectedAlleleFrequencies.txt" | always | nsnLD |
+| `neutralFrequencies` | "NeutralAlleleFrequencies.txt" | always | nsnLD |
+| `effMigRates` | "EffectiveMigrationRates.txt" | when `gatherLDvalues >= 1` and loci meet `LD_LOCI_SUBSAMPLE` | means and variances of LD stats |
+|
 
 
 
