@@ -1,19 +1,19 @@
 # Linkage disequilibrium
 is calculated in several ways and places in the code.  There are also a number of controls on it.  This creates a bit of a mess.  The following is a description of relevant functions and the controls on data collection.
 
-## Summary
+## I. Summary of command line control
 The most important control variable is `gatherLDvalues`, which is an int that can be set from the command line with -g
-if `-g = 0`, there won't be much LD data
-if `-g = 1`, there will be a lot of average LD data
-if `-g = 3`, there will be tons of site specific data (potentially gigabytes)
+* if `-g = 0`, there won't be much LD data
+* if `-g = 1`, there will be a lot of average LD data
+* if `-g = 3`, there will be tons of site specific data (potentially gigabytes).  Use with caution.
 
-`RECORD_LD_VALUES` is a legacy control that still plays some role.  `gatherLDvalues` was added because finer control was desired.
+`RECORD_LD_VALUES` is a legacy control that still plays some role.  `gatherLDvalues` was added because finer control was desired.  `RECORD_LD_VALUES` is automatically set to a value of "1" (i.e., true) in `main()` if `gatherLDvalues >= 3`.
 
 
 
-## Where LD calculations occur in the code:
+## II. Where LD calculations occur in the code:
 
-### The bulk are called from `calcExpectedME()` and depend upon `gatherLDvalues`
+### II. A. The bulk of the calculations are called from `calcExpectedME()` and depend upon `gatherLDvalues`
 
 Note that `calcExpectedME()` is called from `reproduce()`, and `reproduce()` is called from `main()`
 
@@ -29,24 +29,36 @@ if ( gatherLDvalues >= 1 ) {
 ```
 * `calculateLDselectedSitesOnly()` and `calculateLDneutralSitesOnly()` are nearly identical in their operations, except the former works on selected sites and the latter on neutral sites.
     * When either of these is called, they make a call to `calculateLDpairOneOff()`
-    * returned value from that function is used to calculate an average value
-    * the returned value is ALSO individually written to a data file if `gatherLDvalues >= 3`.
+    * returned value from that function is used to calculate an average value.  These average values are written to `LDneutSitesAvg` and `LDselSitesAvg`
+    * the returned value is ALSO individually written to a data file if `gatherLDvalues >= 3`.  These individual values are written to `LDselSitesSame`, `LDselSitesDiff`, `LDneutSitesSame`, and `LDneutSitesDiff`
 
 * `calculateLD()` calls `calculateLDpair(l1,l2,dist, dpt1, dpt2, dpt3, gatherLDvalues)`
     * `calculateLD()` writes averages and variances to `effMigRates`
     * `calculateLDpair()` writes individual values to `LDfpt` IF `gatherLDvalues >= 3` AND `BeginRecordingLD` AND `fabs(DD) > LD_LowerBound`
 
 
-nsnLD values are called from calculateAlleleFrequencies --> does NOT depend on gatherLD value
-calculateAlleleFrequencies() is called from Main
+### II. B. Additional calculations of LD with nearest selected neighbor are called from `calculateAlleleFrequencies`
+
+* These calls do NOT depend on `gatherLDvalues`.
+* `calculateAlleleFrequencies()` is called from `main()`
+* nsnLD values are obtained from `calculateLDpairOneOff()`
+* nsnLD values are written to `selectedFrequencies` or `neutralFrequencies`
+
+
+## III. Which files have which data?
+| File Pointer | File Name | Condition of writing data | Description of data |
+| ------------- | ----------- | ----------------------------- | --------------------- |
+| `selectedFrequencies` | "SelectedAlleleFrequencies.txt" | always when `calculateAlleleFrequencies()` is called | nsnLD |
+| `neutralFrequencies` | "SelectedAlleleFrequencies.txt" | always when `calculateAlleleFrequencies()` is called | nsnLD |
 
 
 
-alleleFrequenciesByPatch[nLOCI][nPATCHES] is a local variable created in calculateAlleleFrequencies()
 
+## Additional random notes
 
+`alleleFrequenciesByPatch[nLOCI][nPATCHES]` is a local variable created in `calculateAlleleFrequencies()`
 
-Control via gatherLDvalues ( -g <int>)
+Control via `gatherLDvalues ( -g <int>)`
 + local variable created in Main --> sent to reproduce --> sent to calcExpectedME
 + LINE 560:
 ```
@@ -126,9 +138,4 @@ Control via LD_LOCI_SUBSAMPLE:
 calculateLDneutralSitesOnly
 calculateLDselectedSitesOnly
 calculateLD
-
-
-******************
-
-File pointers
 
