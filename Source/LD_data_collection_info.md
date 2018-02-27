@@ -50,8 +50,14 @@ if ( gatherLDvalues >= 1 ) {
 | ------------- | ----------- | ----------------------------- | --------------------- |
 | `selectedFrequencies` | "SelectedAlleleFrequencies.txt" | always | nsnLD |
 | `neutralFrequencies` | "NeutralAlleleFrequencies.txt" | always | nsnLD |
-| `effMigRates` | "EffectiveMigrationRates.txt" | when `gatherLDvalues >= 1` and loci meet `LD_LOCI_SUBSAMPLE` | means and variances of LD stats |
-|
+| `effMigRates` | "EffectiveMigrationRates.txt" | if `gatherLDvalues >= 1` and loci meet `LD_LOCI_SUBSAMPLE` | means and variances of LD stats |
+| `LDselSitesAvg` | "LDselSitesAvg.txt" | if `gatherLDvalues >= 1` and loci meet `LD_LOCI_SUBSAMPLE` | avg LD for selected sites on same and different chroms. |
+| `LDneutSitesAvg` | "LDneutSitesAvg.txt" | if `gatherLDvalues >= 1` and loci meet `LD_LOCI_SUBSAMPLE` | avg LD for neutral sites on same and different chroms. |
+| `LDselSitesSame` | "LDselSitesSame.txt" | if `gatherLDvalues >= 3` and loci meet `LD_LOCI_SUBSAMPLE` | individual LD numbers for selected sites on same chrom. but NOT loci IDs |
+| `LDselSitesDiff` | "LDselSitesDiff.txt" | if `gatherLDvalues >= 3` and loci meet `LD_LOCI_SUBSAMPLE` | individual LD numbers for selected sites on different chroms. but NOT loci IDs |
+| `LDneutSitesSame` | "LDneutSitesSame.txt" | if `gatherLDvalues >= 3` and loci meet `LD_LOCI_SUBSAMPLE` | individual LD numbers for neutral sites on same chrom. but NOT loci IDs |
+| `LDneutSitesDiff` | "LDneutSitesDiff.txt" | if `gatherLDvalues >= 3` and loci meet `LD_LOCI_SUBSAMPLE` | individual LD numbers for neutral sites on different chroms. but NOT loci IDs |
+| `LDfpt` | "LDvalues.txt" | if `( gatherLDvalues >= 3 )` and `( BeginRecordingLD )` and `( fabs(DD) > LD_LowerBound )` and loci meet `LD_LOCI_SUBSAMPLE` | individual pairs of loci with lots of detail |
 
 
 
