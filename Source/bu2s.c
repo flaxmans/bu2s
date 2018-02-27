@@ -1,13 +1,12 @@
 /*
  *  bu2s.c
  *
- *
  *  Created by Samuel Melvin Flaxman on 4/10/12.
- *  Copyright 2012-2016 Samuel Melvin Flaxman. All rights reserved.
+ *  Copyright 2012-2018 Samuel Melvin Flaxman.
  *
  */
 
-const char *version = "bu2s_3.7.0";
+const char *version = "bu2s_3.7.1";
 
 #include <stdio.h>
 #include <stdlib.h>
