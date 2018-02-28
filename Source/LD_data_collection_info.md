@@ -66,8 +66,7 @@ if ( gatherLDvalues >= 1 ) {
 
 `alleleFrequenciesByPatch[nLOCI][nPATCHES]` is a local variable created in `calculateAlleleFrequencies()`
 
-Control via `gatherLDvalues ( -g <int>)`
-+ local variable created in Main --> sent to reproduce --> sent to calcExpectedME
+##### Control via `gatherLDvalues ( -g <int>)`
 + LINE 560:
 ```
 if ( gatherLDvalues >= 3 )
@@ -87,63 +86,61 @@ if ( gatherLDvalues >= 3 ) {
 }
 ```
 + used by:
-openDataFilesForRecording( gatherLDvalues );
-reproduce(gatherLDvalues);
-calculateLD( gatherLDvalues );
-+ LINE 1721:  if ( gatherLDvalues >= 1 ) in calculateLD()
-then D, Dprime, and Delta are calculated and written to effMigRates
-for LD_LOCI_SUBSAMPLE
-line 1744: sent to calculateLDpair(l1,l2,dist, dpt1, dpt2, dpt3, gatherLDvalues)
+    + `openDataFilesForRecording( gatherLDvalues );`
+    + `reproduce(gatherLDvalues);`
+    + `calculateLD( gatherLDvalues );`
+    + LINE 1721:  if ( gatherLDvalues >= 1 ) in calculateLD(), then D, Dprime, and Delta are calculated and written to effMigRates for LD_LOCI_SUBSAMPLE
+    + line 1744: sent to calculateLDpair(l1,l2,dist, dpt1, dpt2, dpt3, gatherLDvalues)
 
 + in calculateLDneutralSitesOnly()
-line 1816: if ( gatherLDvalues >= 3 )
-then individual site data is recorded
-same for calculateLDselectedSitesOnly() line 1890
-same for calculateLDpair, line 1983
+    + line 1816: if ( gatherLDvalues >= 3 ) then individual site data is recorded
+    + same for calculateLDselectedSitesOnly() line 1890
+    + same for calculateLDpair, line 1983
 
 
-
-
-
-
-Control via RECORD_LD_VALUES
+##### Control via `RECORD_LD_VALUES`
 + set with -V
 + automatically set to 1 if gatherLDvalues >= 3 (line 517)
 + can cause BeginRecordingLD = 1 (line 4118) in conjunction with START_THRESH_FOR_LD
 
-Control via BeginRecordingLD
-affects calculateLDpair(), line 1984; that is ONLY effect: whether individual site data are written to LDfpt
-set at line 4115, but this is unnecessary if setTSfreq() has been called:
+##### Control via `BeginRecordingLD`
++ affects calculateLDpair(), line 1984; that is ONLY effect: whether individual site data are written to LDfpt
++ set at line 4115, but this is unnecessary if `setTSfreq()` has been called when `RECORDING_TIMES_IN_FILE == 1`:
+```
 else { // check to see if we should start recording
-if ( migrationCount[0] && migrationCount[j] ) {
-if ( (avgImmFit[0]/avgResFit[0] <= START_THRESH_FOR_LD) || (avgImmFit[j]/avgResFit[j] <= START_THRESH_FOR_LD) ) {
-BeginRecordingLD = 1;
-fprintf(stderr, "\nStarted recording LD at generation %li\n", totalGenerationsElapsed);
+    if ( migrationCount[0] && migrationCount[j] ) {
+        if ( (avgImmFit[0]/avgResFit[0] <= START_THRESH_FOR_LD) || (avgImmFit[j]/avgResFit[j] <= START_THRESH_FOR_LD) ) {
+            BeginRecordingLD = 1;
+            fprintf(stderr, "\nStarted recording LD at generation %li\n", totalGenerationsElapsed);
+        }
+    }
 }
-}
-}
-IF RECORDING_TIMES_IN_FILE: then set in setTSfreq():  line 5398: BeginRecordingLD = 1;
+```
++ IF `RECORDING_TIMES_IN_FILE`: then set in `setTSfreq()`:  line 5398
 
-Control via LD_LowerBound
-affects calculateLDpair(), line 1985
-if ( fabs(DD) > LD_LowerBound )
-hard coded as 0.001
-only in play if gatherLDvalues >= 3
-in which case LD values are printed to LDfpt
 
-Control via END_THRESH_FOR_LD
-line 4108:
+##### Control via `LD_LowerBound`
+* affects `calculateLDpair()`, line 1985: `if ( fabs(DD) > LD_LowerBound )`
+* hard coded as 0.001
+* only in play if `gatherLDvalues >= 3`, in which case LD values are printed to `LDfpt`
+
+
+##### Control via `END_THRESH_FOR_LD` and `START_THRESH_FOR_LD`
+* `END_THRESH_FOR_LD` can cause `RECORD_LD_VALUES` to be set to zero; see line 4108:
+```
 if ( RECORD_LD_VALUES && (totalGenerationsElapsed > END_PERIOD_ALLOPATRY) ) {
-if ( BeginRecordingLD ) { // we already started recorded before now
-if ( (avgImmFit[0]/avgResFit[0] <= END_THRESH_FOR_LD) && migrationCount[0] && (avgImmFit[j]/avgResFit[j] <= END_THRESH_FOR_LD) && migrationCount[j] && !RECORDING_TIMES_IN_FILE ) {
-RECORD_LD_VALUES = 0;
-fprintf(stderr, "\nStopped recording LD at generation %li\n", totalGenerationsElapsed);
+    if ( BeginRecordingLD ) { // we already started recorded before now
+        if ( (avgImmFit[0]/avgResFit[0] <= END_THRESH_FOR_LD) && migrationCount[0] && (avgImmFit[j]/avgResFit[j] <= END_THRESH_FOR_LD) && migrationCount[j] && !RECORDING_TIMES_IN_FILE ) {
+        RECORD_LD_VALUES = 0;
+        fprintf(stderr, "\nStopped recording LD at generation %li\n", totalGenerationsElapsed);
+        }
+    }
 }
-}
-
-
-Control via LD_LOCI_SUBSAMPLE:
-calculateLDneutralSitesOnly
-calculateLDselectedSitesOnly
-calculateLD
+```
+* see also note above for "Control via `BeginRecordingLD`"
+* Hard coded thresholds on lines 90-91:
+```
+double START_THRESH_FOR_LD = 0.87;
+double END_THRESH_FOR_LD = 0.06;
+```
 
