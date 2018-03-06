@@ -199,35 +199,38 @@ void calculateLDonePairInDemes( int l1, int l2, double *afbppti, double *afbpptj
     for ( patch = 0; patch < nPATCHES; patch++ ) {
         p1 = *(afbppti + patch); // locus 1, "1" allele frequency in patch
         p2 = *(afbpptj + patch); // locus 2, "1" allele frequency in patch
-        if ( p1 > 0.0 && p1 < 1.0 && p2 > 0.0 && p2 < 1.0 ) {
-            // both loci are variable in this patch
-            for ( haplo = 0; haplo < 2; haplo++ ) {  // loop over each haplotype
-                
-                gpt1 = genotypes + ( 2 * nLOCI * n_count ) + (2 * l1) + haplo; // allele of first locus on chromosome for first individual in patch
-                gpt2 = genotypes + ( 2 * nLOCI * n_count ) + (2 * l2) + haplo; // allele on second locus on chromosome
-                
-                for ( ii = 0; ii < patchAbundancePtr[patch]; ii++ ) {
-                    if ( *gpt1 ) {
-                        if ( *gpt2 ) {
-                            oo[patch]++;
-                        }
-                        else {
-                            oz[patch]++;
-                        }
+        for ( haplo = 0; haplo < 2; haplo++ ) {  // loop over each haplotype
+            
+            gpt1 = genotypes + ( 2 * nLOCI * n_count ) + (2 * l1) + haplo; // allele of first locus on chromosome for first individual in patch
+            gpt2 = genotypes + ( 2 * nLOCI * n_count ) + (2 * l2) + haplo; // allele on second locus on chromosome
+            
+            for ( ii = 0; ii < patchAbundancePtr[patch]; ii++ ) {
+                if ( *gpt1 ) {
+                    if ( *gpt2 ) {
+                        oo[patch]++;
                     }
                     else {
-                        if ( *gpt2 ) {
-                            zo[patch]++;
-                        }
-                        else {
-                            zz[patch]++;
-                        }
+                        oz[patch]++;
                     }
-                    gpt1 += (2 * nLOCI); // next individual
-                    gpt2 += (2 * nLOCI);
                 }
-                
+                else {
+                    if ( *gpt2 ) {
+                        zo[patch]++;
+                    }
+                    else {
+                        zz[patch]++;
+                    }
+                }
+                gpt1 += (2 * nLOCI); // next individual
+                gpt2 += (2 * nLOCI);
             }
+            
+        }
+        
+        if ( p1 > 0.0 && p1 < 1.0 && p2 > 0.0 && p2 < 1.0 ) {
+            // both loci are variable in this patch
+            // even if they aren't, we still need the counts above for the global
+            // LD calculations
             
             Ninv = 0.5 / ((double) patchAbundancePtr[patch]);
             // haplotype frequencies
@@ -240,17 +243,17 @@ void calculateLDonePairInDemes( int l1, int l2, double *afbppti, double *afbpptj
             DD = (( obs11 * obs00 ) - ( obs01 * obs10 ));
             // correlation of allelic states:
             *dpt = DD / sqrt( p1 * p2 * (1.0 - p1) * (1.0 - p2) );
-            
-            // add to total count over ALL patches:
-            oo[nPATCHES] += oo[patch];
-            oz[nPATCHES] += oz[patch];
-            zo[nPATCHES] += zo[patch];
-            zz[nPATCHES] += zz[patch];
         }
         else {
-            // LD is zero in this patch
             *dpt = 0.0;
         }
+        
+        // add to total count over ALL patches:
+        oo[nPATCHES] += oo[patch];
+        oz[nPATCHES] += oz[patch];
+        zo[nPATCHES] += zo[patch];
+        zz[nPATCHES] += zz[patch];
+        
         n_count += patchAbundancePtr[patch]; // add in those already done
         dpt++; // increment pointer to storage array for next deme
     }
@@ -279,7 +282,7 @@ void calculateLDaverageVals( long int pairCount, int *categoryCounts, int *pairC
     int j, row, *ipt = pairCategories;
     long int i;
     double categorySums[(NUM_LD_PAIR_CATEGORIES + 1)][(nPATCHES + 1)];
-    double *dpt, denom;
+    double *dpt, denom, foo;
     int testCountSum[(NUM_LD_PAIR_CATEGORIES + 1)];
     // the +1's on NUM_LD_PAIR_CATEGORIES are for genome-wide averages across all locus-pair types
     
@@ -298,8 +301,9 @@ void calculateLDaverageVals( long int pairCount, int *categoryCounts, int *pairC
         row = *ipt;  // storage row is category number code
         for ( j = 0; j < (nPATCHES + 1); j++ ) {
             // loop over patches
-            categorySums[row][j] += *dpt;
-            categorySums[NUM_LD_PAIR_CATEGORIES][j] += *dpt; // genome wide numbers in last row
+            foo = fabs( *dpt ); // fabs removes sign so we get average MAGNITUDE (not true mean with negative numbers' influence)
+            categorySums[row][j] += foo;
+            categorySums[NUM_LD_PAIR_CATEGORIES][j] += foo; // genome wide numbers in last row
             dpt++; // increment pointer to LD values
         }
         testCountSum[(*ipt)] += 1;

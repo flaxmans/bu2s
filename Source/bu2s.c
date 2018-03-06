@@ -95,8 +95,8 @@ double RI_THRESH = 0.0001; // threshold for ending simulations
 #define RECORD_FIT_TS_DEFAULT 1 // data recording Boolean
 int nRECORD_FIT = 100;
 #define FST_MIN_RECORDING_THRESH -1.0 // minimum value of FST, below which, values for a locus will NOT be recorded in data files
-#define MIN_TS_SAMP_FREQ 100
-#define MAX_TS_SAMP_FREQ 1000
+#define MIN_TS_SAMP_FREQ 1000
+#define MAX_TS_SAMP_FREQ 10000
 #define RECORDING_TIMES_IN_FILE_DEFAULT 0
 #define PURE_NEUTRAL_MODEL_DEFAULT 0
 #define PURE_ALLOPATRY_MODEL_DEFAULT 0
@@ -1450,6 +1450,14 @@ int calculateAlleleFrequencies(int gatherLDvalues)
         calcDXY2( &alleleFrequenciesByPatch[0][0] );
         if ( gatherLDvalues >= 1  && nVariableLoci > 1 )
             calculateLDwithinDemes( gatherLDvalues, &alleleFrequenciesByPatch[0][0], &n_in_each_patch[0] );
+        if ( gatherLDvalues >= 1 ) {
+            calculateLDselectedSitesOnly( gatherLDvalues );
+            calculateLDneutralSitesOnly( gatherLDvalues );
+            calculateLD( gatherLDvalues );
+        }
+        else
+            fprintf(effMigRates, " 0.0 0.0 0.0 0.0 0.0 0.0\n");
+        
     }
     
     if ( ((totalGenerationsElapsed % TS_SAMPLING_FREQUENCY) == 0 && totalGenerationsElapsed > 0 ) || ( (totalGenerationsElapsed+1) == (nMUTATIONS * nGENERATIONS_MAX) ) || ( RECORDING_TIMES_IN_FILE && totalGenerationsElapsed == nextRecordingTime ) ) {
@@ -4130,13 +4138,6 @@ void calcExpectedME(double *fitpt, double *fitsumpt, int gatherLDvalues)
         }
     }
     
-    if ( gatherLDvalues >= 1 ) {
-        calculateLDselectedSitesOnly( gatherLDvalues );
-        calculateLDneutralSitesOnly( gatherLDvalues );
-        calculateLD( gatherLDvalues );
-    }
-    else
-        fprintf(effMigRates, " 0.0 0.0 0.0 0.0 0.0 0.0\n");
     
     
     
