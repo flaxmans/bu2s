@@ -60,8 +60,8 @@ int loci_count_many = 0;
 #define MOSAIC_DEFAULT 0
 #define SD_MOVE_DEFAULT 0.1 // if TWO_DEME is used, this IS the gross migration rate
 #define OIRL_DEFAULT 1 // offspring in random locations or not
-#define nCHROMOSOMES_DEFAULT 10 // only used if MAP_TYPE == 1
-#define TOTAL_MAP_LENGTH_DEFAULT 1000.0 // only used if MAP_TYPE == 1
+#define nCHROMOSOMES_DEFAULT 5 // only used if MAP_TYPE == 1
+#define TOTAL_MAP_LENGTH_DEFAULT 500.0 // only used if MAP_TYPE == 1
 #define MUTATION_DISTRIBUTION_DEFAULT 0 // 0 for exponential, 1 for fattened tail, 2 for early "flat" (uniform) distribution, 3 for constant S
 #define FATTEN_TAIL_PROPORTION_DEFAULT 0.0001 // proportion to flatten or fatten
 #define FATTEN_TAIL_MAX_DEFAULT 1.0 // max value to use when flattening or fattening
@@ -86,14 +86,11 @@ int loci_count_many = 0;
 
 // parameters that affect data recording only
 #define nTIME_SAMPLES_DEFAULT 100
-#define RECORD_LD_VALUES_DEFAULT 0
 double START_THRESH_FOR_LD = 0.87;
 double END_THRESH_FOR_LD = 0.06;
 // #define LD_SAMPLING_FREQUENCY 25 // time subsampling of LD
-#define LD_LOCI_SUBSAMPLE 1 // LD only recorded for pairs involving every LD_LOCI_SUBSAMPLEth locus
 #define AL_FREQ_SUBSAMPLE 1
-#define LD_LowerBound 0.001 // LD only recorded when fabs(DD) > LD_LowerBound and...
-//#define LD_UpperBound 1.0 // LD only recorded when fabs(Delta) < LD_UpperBound
+//#define LD_UPPER_BOUND 1.0 // LD only recorded when fabs(Delta) < LD_UPPER_BOUND
 double RI_THRESH = 0.0001; // threshold for ending simulations
 #define RECORD_FIT_TS_DEFAULT 1 // data recording Boolean
 int nRECORD_FIT = 100;
@@ -251,7 +248,7 @@ int migrationCount[(PATCHES * PATCHES)];
 // core biology functions
 void addALocus(double mapLoc, int locType);
 void bagOfGenes(short int *ogtpt, int *noff, int newN);
-int calculateAlleleFrequencies(void);
+int calculateAlleleFrequencies(int gatherLDvalues);
 void calculateFitnesses(double *f, double *fsum);
 void calculateLDpair(int l1, int l2, double dist, double *Dsum, double *DprimeSum, double *DeltaSum, int gatherLDvalues);
 double calculateLDpairOneOff(int l1, int l2);
@@ -639,7 +636,7 @@ main(int argc, char *argv[])
             reproduce(gatherLDvalues);
             
             // get some stats about allele frequencies and their changes
-            lostByDrift = calculateAlleleFrequencies();
+            lostByDrift = calculateAlleleFrequencies( gatherLDvalues );
             
             // some bookkeeping at regular intervals
             if ( (totalGenerationsElapsed % TS_SAMPLING_FREQUENCY == 0 && totalGenerationsElapsed > 0 ) || ( (totalGenerationsElapsed+1) == (nMUTATIONS * nGENERATIONS_MAX) ) || RI_REACHED || ( RECORDING_TIMES_IN_FILE && totalGenerationsElapsed == nextRecordingTime ) ) {
@@ -775,6 +772,8 @@ main(int argc, char *argv[])
     fclose(AFSTS);
     fclose(selAFSTS);
     fclose(neutAFSTS);
+    
+    closeLDdataFiles( gatherLDvalues );
     
     
     pfree(x_locations);
@@ -1253,7 +1252,7 @@ void bagOfGenes(short int *ogtpt, int *noff, int newN)
 
 
 
-int calculateAlleleFrequencies(void)
+int calculateAlleleFrequencies(int gatherLDvalues)
 {
     int i, j, patch, locus, locType;
     int allelesByPatch[nLOCI][nPATCHES], totalAlleles[nLOCI], gtsum, taln;
@@ -1428,8 +1427,30 @@ int calculateAlleleFrequencies(void)
             }
         }
     }
-    if ( ((totalGenerationsElapsed % TS_SAMPLING_FREQUENCY) == 0 && totalGenerationsElapsed > 0 ) || ( (totalGenerationsElapsed+1) == (nMUTATIONS * nGENERATIONS_MAX) ) || ( RECORDING_TIMES_IN_FILE && totalGenerationsElapsed == nextRecordingTime ) )
+    
+    // test stuff about order of entries in memory for 2D array
+//    if ( ((totalGenerationsElapsed % TS_SAMPLING_FREQUENCY) == 0 && totalGenerationsElapsed > 0 ) || ( (totalGenerationsElapsed+1) == (nMUTATIONS * nGENERATIONS_MAX) ) || ( RECORDING_TIMES_IN_FILE && totalGenerationsElapsed == nextRecordingTime ) ) {
+//        double *testpt = &alleleFrequenciesByPatch[0][0];
+//        int *testipt = &allelesByPatch[0][0];
+//
+//        if ( nLOCI >= 10 ) {
+//            for ( i = 0; i < nLOCI; i++ ) {
+//                for ( j = 0; j < nPATCHES; j++ ) {
+//                    if ( allelesByPatch[i][j] != *testipt++  || alleleFrequenciesByPatch[i][j] != *testpt++ ) {
+//                        fprintf(stderr, "\nError in calculateAlleleFrequencies()\n: \tYou don't understand the pointer progression across the arrays!\n\n");
+//                        exit(-1);
+//                    }
+//                }
+//            }
+//        }
+//    }
+    // end test stuff
+    
+    if ( ((totalGenerationsElapsed % TS_SAMPLING_FREQUENCY) == 0 && totalGenerationsElapsed > 0 ) || ( (totalGenerationsElapsed+1) == (nMUTATIONS * nGENERATIONS_MAX) ) || ( RECORDING_TIMES_IN_FILE && totalGenerationsElapsed == nextRecordingTime ) ) {
         calcDXY2( &alleleFrequenciesByPatch[0][0] );
+        if ( gatherLDvalues >= 1  && nVariableLoci > 1 )
+            calculateLDwithinDemes( gatherLDvalues, &alleleFrequenciesByPatch[0][0], &n_in_each_patch[0] );
+    }
     
     if ( ((totalGenerationsElapsed % TS_SAMPLING_FREQUENCY) == 0 && totalGenerationsElapsed > 0 ) || ( (totalGenerationsElapsed+1) == (nMUTATIONS * nGENERATIONS_MAX) ) || ( RECORDING_TIMES_IN_FILE && totalGenerationsElapsed == nextRecordingTime ) ) {
         for ( i = 0; i < nLOCI; i++ ) {
@@ -1925,28 +1946,28 @@ void calculateLDpair(int l1, int l2, double dist, double *Dvals, double *DprimeV
     int i, j;
     double zz = 0.0, oo = 0.0, zo = 0.0, oz = 0.0;
     double Ninv = 0.5 / ((double) N);
-    double exp11, DD, Dmax, Dprime, Delta;
+    double DD, Dmax, Dprime, Delta;
     short int *gpt1, *gpt2;
     
-    for ( j = 0; j < 2; j++ ) {
+    for ( j = 0; j < 2; j++ ) { // haplotypes
         
         gpt1 = genotypes + (2 * l1) + j; // allele of first locus on chromosome
         gpt2 = genotypes + (2 * l2) + j; // allele on second locus on chromosome
         
         for ( i = 0; i < N; i++ ) {
-            if ( *gpt1 ) {
-                if ( *gpt2 ) {
+            if ( *gpt1 ) { // it's a 1 locus 1
+                if ( *gpt2 ) { //a 1 at locus 2
                     oo++;
                 }
-                else {
+                else { // a 0 at locus 2
                     oz++;
                 }
             }
-            else {
-                if ( *gpt2 ) {
+            else { // a 0 at locus 1
+                if ( *gpt2 ) { // a 1 at locus 2
                     zo++;
                 }
-                else {
+                else { // a 0 at locus 2
                     zz++;
                 }
             }
@@ -1965,11 +1986,6 @@ void calculateLDpair(int l1, int l2, double dist, double *Dvals, double *DprimeV
     double A = allele_frequencies[l1], B = allele_frequencies[l2];
     
     DD = (( oo * zz ) - ( zo * oz ));
-    exp11 = A * B; // expected frequency of 11 haplotype
-    
-    // check
-    //if ( DD != (oo - exp11) )
-    //	printf("bad math, DD = %G, diff = %G\n", DD, (oo - exp11));
     
     if ( DD > 0.0 )
         Dmax = fmin( (A * (1.0 - B)), ((1.0 - A) * B) );
@@ -1980,9 +1996,9 @@ void calculateLDpair(int l1, int l2, double dist, double *Dvals, double *DprimeV
     
     Delta = DD / sqrt( A * B * (1.0 - A) * (1.0 - B) );
     
-    if ( gatherLDvalues >= 3 ) {
+    if ( gatherLDvalues >= 3 && RECORD_LD_VALUES ) {
         if ( BeginRecordingLD ) {
-            if ( fabs(DD) > LD_LowerBound ) {
+            if ( fabs(DD) > LD_LOWER_BOUND ) {
                 fprintf(LDfpt, "%li %li %li %E %E %E %E %E %E %i %i\n", totalGenerationsElapsed, locusID[l1], locusID[l2], DD, Dprime, Delta, dist, S_MAX1[l1], S_MAX1[l2], IS_SELECTED_LOCUS[l1], IS_SELECTED_LOCUS[l2]);
             }
         }
@@ -1998,7 +2014,7 @@ double calculateLDpairOneOff(int l1, int l2)
     int i, j;
     double zz = 0.0, oo = 0.0, zo = 0.0, oz = 0.0;
     double Ninv = 0.5 / ((double) N);
-    double exp11, DD, Dmax, Dprime, Delta;
+    double DD, Dmax, Dprime, Delta;
     short int *gpt1, *gpt2;
     double A = allele_frequencies[l1], B = allele_frequencies[l2];
     
@@ -2039,13 +2055,6 @@ double calculateLDpairOneOff(int l1, int l2)
     DD = (( oo * zz ) - ( zo * oz ));
     Delta = DD / sqrt( A * B * (1.0 - A) * (1.0 - B) );
     
-    
-    
-    //	exp11 = A * B; // expected frequency of 11 haplotype
-    //
-    //	// check
-    //	//if ( DD != (oo - exp11) )
-    //	//	printf("bad math, DD = %G, diff = %G\n", DD, (oo - exp11));
     //
     //	if ( DD > 0.0 )
     //		Dmax = fmin( (A * (1.0 - B)), ((1.0 - A) * B) );
@@ -2056,7 +2065,6 @@ double calculateLDpairOneOff(int l1, int l2)
     
     return Delta;
 }
-
 
 
 void makeZygoteChromosomes(int parent, short int *ogtpt)
@@ -5120,6 +5128,9 @@ void openDataFilesForRecording( int gatherLDvalues ) {
         mkdir(datadir, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH );
     }
     
+    // for LD data as specified in LDcalculations.c:
+    openLDdataFiles( gatherLDvalues );
+    
 }
 
 
@@ -5239,8 +5250,8 @@ void printParameters(long int estRunLength)
     //    fprintf(pfpt,"LD_SAMPLING_FREQUENCY = %i;\n", LD_SAMPLING_FREQUENCY);
     fprintf(pfpt,"LD_LOCI_SUBSAMPLE = %i;\n", LD_LOCI_SUBSAMPLE);
     //    fprintf(pfpt,"EM_THRESH_FOR_LD = %G;\n", EM_THRESH_FOR_LD);
-    fprintf(pfpt,"LD_LowerBound = %E;\n", LD_LowerBound);
-    //    fprintf(pfpt,"LD_UpperBound = %G;\n\n", LD_UpperBound);
+    fprintf(pfpt,"LD_LOWER_BOUND = %E;\n", LD_LOWER_BOUND);
+    //    fprintf(pfpt,"LD_UPPER_BOUND = %G;\n\n", LD_UPPER_BOUND);
     fprintf(pfpt,"FST_MIN_RECORDING_THRESH = %E;\n", FST_MIN_RECORDING_THRESH);
     
     
@@ -5859,7 +5870,7 @@ usage(char *s)
     fprintf(stderr,  "\t\t\tSet to -1 for primary contact, i.e., divergence\n");
     fprintf(stderr,  "\t\t\twith constant gene flow, i.e., sympatry/parapatry.\n");
     fprintf(stderr,  "\t\t\tDefault is %i generations.\n", END_PERIOD_ALLOPATRY_DEFAULT);
-    fprintf(stderr,  "\t\t\tNote that -A is for creating a basic secondary contact scenario.\n\t\t\t\For a period of allopatry in the middle of a simulation run,\n\t\t\tuse -a and -J below.\n\n");
+    fprintf(stderr,  "\t\t\tNote that -A is for creating a basic secondary contact scenario.\n\t\t\tFor a period of allopatry in the middle of a simulation run,\n\t\t\tuse -a and -J below.\n\n");
     
     fprintf(stderr,  "\t[-a <integer>] \tWhen to start the period of allopatry, expressed in\n");
     fprintf(stderr,  "\t\t\tterms of numbers of generations.\n");
@@ -5938,7 +5949,7 @@ usage(char *s)
     
     fprintf(stderr,  "\t[-J <int>] \tLength of period of allopatry when using -a.\n");
     fprintf(stderr,  "\t\t\tValue for -J is only used when -a value (above) is > 0\n");
-    fprintf(stderr,  "\t\t\tDefault is %\i\n\n",PERIOD_ALLOPATRY_DEFAULT);
+    fprintf(stderr,  "\t\t\tDefault is %i\n\n",PERIOD_ALLOPATRY_DEFAULT);
     
     
     fprintf(stderr,  "\t[-K <value>] \tCarrying capacity of each patch.\n");

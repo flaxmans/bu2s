@@ -12,8 +12,8 @@ CC = gcc
 #
 # Rule for linking together the object files needed for our program
 #
-${TARGET}: ${TARGET}.o MT/dSFMT.o PoissonLookup.o
-	${CC} ${CCFLAGS} ${GSLFLAGS} -o $@ MT/dSFMT.o PoissonLookup.o ${TARGET}.o -lm
+${TARGET}: ${TARGET}.o MT/dSFMT.o PoissonLookup.o LDcalculations.o
+	${CC} ${CCFLAGS} ${GSLFLAGS} -o $@ MT/dSFMT.o PoissonLookup.o LDcalculations.o ${TARGET}.o -lm
 
 #
 # Rule for how the MT code gets build.  Just go to that directory and
@@ -24,6 +24,9 @@ MT/dSFMT.o:
 
 PoissonLookup.o: PoissonLookup.c bu2s.h
 	${CC} ${CCFLAGS} -c -I/usr/local/include/gsl -DDSFMT_MEXP=19937 -o PoissonLookup.o PoissonLookup.c
+
+LDcalculations.o: LDcalculations.c bu2s.h
+	${CC} ${CCFLAGS} -c -DDSFMT_MEXP=19937 -o LDcalculations.o LDcalculations.c
 
 #
 # Default rule for how a .o (object) file gets built from a .c file
@@ -39,5 +42,6 @@ clean:
 	rm -f ${TARGET}
 	rm -f ${TARGET}.o
 	rm -f PoissonLookup.o
+	rm -f LDcalculations.o
 	cd MT; make clean
 

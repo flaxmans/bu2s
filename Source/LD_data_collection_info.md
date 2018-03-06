@@ -57,7 +57,7 @@ if ( gatherLDvalues >= 1 ) {
 | `LDselSitesDiff` | "LDselSitesDiff.txt" | if `gatherLDvalues >= 3` and loci meet `LD_LOCI_SUBSAMPLE` | individual LD numbers for selected sites on different chroms. but NOT loci IDs |
 | `LDneutSitesSame` | "LDneutSitesSame.txt" | if `gatherLDvalues >= 3` and loci meet `LD_LOCI_SUBSAMPLE` | individual LD numbers for neutral sites on same chrom. but NOT loci IDs |
 | `LDneutSitesDiff` | "LDneutSitesDiff.txt" | if `gatherLDvalues >= 3` and loci meet `LD_LOCI_SUBSAMPLE` | individual LD numbers for neutral sites on different chroms. but NOT loci IDs |
-| `LDfpt` | "LDvalues.txt" | if `( gatherLDvalues >= 3 )` and `( BeginRecordingLD )` and `( fabs(DD) > LD_LowerBound )` and loci meet `LD_LOCI_SUBSAMPLE` | individual pairs of loci with lots of detail |
+| `LDfpt` | "LDvalues.txt" | if `gatherLDvalues >= 3` and `BeginRecordingLD` and `fabs(DD) > LD_LowerBound` and loci meet `LD_LOCI_SUBSAMPLE` | individual pairs of loci with lots of detail |
 
 
 
@@ -92,7 +92,7 @@ if ( gatherLDvalues >= 3 ) {
     + LINE 1721:  if ( gatherLDvalues >= 1 ) in calculateLD(), then D, Dprime, and Delta are calculated and written to effMigRates for LD_LOCI_SUBSAMPLE
     + line 1744: sent to calculateLDpair(l1,l2,dist, dpt1, dpt2, dpt3, gatherLDvalues)
 
-+ in calculateLDneutralSitesOnly()
++ in `calculateLDneutralSitesOnly()`
     + line 1816: if ( gatherLDvalues >= 3 ) then individual site data is recorded
     + same for calculateLDselectedSitesOnly() line 1890
     + same for calculateLDpair, line 1983
