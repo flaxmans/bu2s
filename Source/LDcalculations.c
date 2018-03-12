@@ -348,7 +348,7 @@ void openLDdataFiles( int gatherLDvalues )
             fprintf(LD_filePointers[i], "totalGenerationsElapsed,locusID1,locusID2");
             for  ( j = 0; j < nPATCHES; j++ )
                 fprintf( LD_filePointers[i], ",LDinDeme%i", j);
-            fprintf(LD_filePointers[i], ",globalLD)");
+            fprintf(LD_filePointers[i], ",globalLD");
             if ( i == LD_PAIR_CODE_BOTH_SEL_SAME_CHROM || i == LD_PAIR_CODE_BOTH_NEUT_SAME_CHROM || i == LD_PAIR_CODE_SEL_NEUT_SAME_CHROM ) {
                 fprintf(LD_filePointers[i], ",distance");
             }
