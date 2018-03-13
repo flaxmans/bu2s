@@ -4130,14 +4130,14 @@ void calcExpectedME(double *fitpt, double *fitsumpt)
         if ( BeginRecordingLD ) { // we already started recorded before now
             if ( (avgImmFit[0]/avgResFit[0] <= END_THRESH_FOR_LD) && migrationCount[0] && (avgImmFit[j]/avgResFit[j] <= END_THRESH_FOR_LD) && migrationCount[j] && !RECORDING_TIMES_IN_FILE ) {
                 RECORD_LD_VALUES = 0;
-                fprintf(stderr, "\nStopped recording LD at generation %li\n", totalGenerationsElapsed);
+                // fprintf(stderr, "\nStopped recording LD at generation %li\n", totalGenerationsElapsed);
             }
         }
         else { // check to see if we should start recording
             if ( migrationCount[0] && migrationCount[j] ) {
                 if ( (avgImmFit[0]/avgResFit[0] <= START_THRESH_FOR_LD) || (avgImmFit[j]/avgResFit[j] <= START_THRESH_FOR_LD) ) {
                     BeginRecordingLD = 1;
-                    fprintf(stderr, "\nStarted recording LD at generation %li\n", totalGenerationsElapsed);
+                    //fprintf(stderr, "\nStarted recording LD at generation %li\n", totalGenerationsElapsed);
                 }
             }
         }
