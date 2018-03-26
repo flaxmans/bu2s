@@ -49,7 +49,7 @@ int loci_count_many = 0;
 #define nMUTATIONS_DEFAULT 15000000
 #define MUTATIONS_PER_GENERATION_DEFAULT 10
 #define INITIAL_CONDITIONS_DEFAULT 0
-#define INITIAL_POPULATION_SIZE_DEFAULT 4000
+#define INITIAL_POPULATION_SIZE_DEFAULT 5000
 #define MEAN_S_DEFAULT 0.01 // mean value of selection coefficients drawn from -exponential distribution
 #define SYMMETRIC_MUTATIONS_DEFAULT 1
 #define MAP_TYPE_DEFAULT 1
@@ -60,8 +60,8 @@ int loci_count_many = 0;
 #define MOSAIC_DEFAULT 0
 #define SD_MOVE_DEFAULT 0.1 // if TWO_DEME is used, this IS the gross migration rate
 #define OIRL_DEFAULT 1 // offspring in random locations or not
-#define nCHROMOSOMES_DEFAULT 5 // only used if MAP_TYPE == 1
-#define TOTAL_MAP_LENGTH_DEFAULT 500.0 // only used if MAP_TYPE == 1
+#define nCHROMOSOMES_DEFAULT 4 // only used if MAP_TYPE == 1
+#define TOTAL_MAP_LENGTH_DEFAULT 200.0 // only used if MAP_TYPE == 1
 #define MUTATION_DISTRIBUTION_DEFAULT 0 // 0 for exponential, 1 for fattened tail, 2 for early "flat" (uniform) distribution, 3 for constant S
 #define FATTEN_TAIL_PROPORTION_DEFAULT 0.0001 // proportion to flatten or fatten
 #define FATTEN_TAIL_MAX_DEFAULT 1.0 // max value to use when flattening or fattening
@@ -4116,8 +4116,9 @@ void calcExpectedME(double *fitpt, double *fitsumpt)
         }
         nImmigrants = migrationCount[j];
         nResidents = n_in_each_patch[j] - migrationCount[j];
-        fprintf(effMigRates, " %i %i %E %E %E %E %E %E\n", nResidents, nImmigrants, avgResFit[j], avgImmFit[j], maxFit[j], minFit[j], randomFit[j], avgPatchFitness[j] );
+        fprintf(effMigRates, " %i %i %E %E %E %E %E %E", nResidents, nImmigrants, avgResFit[j], avgImmFit[j], maxFit[j], minFit[j], randomFit[j], avgPatchFitness[j] );
     }
+    fprintf(effMigRates, "\n");
     j = nPATCHES - 1;
     if ( RECORD_FIT_TS ) {
         if ( n_in_each_patch[0] >= nRECORD_FIT )
