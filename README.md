@@ -3,8 +3,9 @@
 BU2S is a forward-time, mutation-based, infinite-sites, individual-based, stochastic population genetic simulator.
 It includes mutation, selection, migration, recombination, and drift.  A full explanation of the biological scenarios simulated with this program can be found in the following two publications:
 
-1. Flaxman SM, Wacholder AC, Feder JL, and Nosil P. 2014.  Theoretical models of the influence of genomic architecture on the dynamics of speciation.  Molecular Ecology 23:4074-4088. [doi: 10.1111/mec.12750](http://dx.doi.org/10.1111/mec.12750).
-2. Flaxman SM, Feder JL, and Nosil P.  2013.  Genetic hitchhiking and the dynamic buildup of genomic divergence during speciation-with-gene-flow. Evolution 67:2577-2591. [doi: 10.1111/evo.12055](http://dx.doi.org/10.1111/evo.12055).
+1. Schilling MP, Mullen SP, Kronforst M, Safran RJ, Nosil P, Feder JL, Gompert Z, Flaxman SM. Transitions from Single- to Multi-Locus Processes during Speciation with Gene Flow. Genes 2018, 9(6), 274. [doi: 10.3390/genes9060274](https://doi.org/10.3390/genes9060274)
+2. Flaxman SM, Wacholder AC, Feder JL, and Nosil P. 2014.  Theoretical models of the influence of genomic architecture on the dynamics of speciation.  Molecular Ecology 23:4074-4088. [doi: 10.1111/mec.12750](http://dx.doi.org/10.1111/mec.12750).
+3. Flaxman SM, Feder JL, and Nosil P.  2013.  Genetic hitchhiking and the dynamic buildup of genomic divergence during speciation-with-gene-flow. Evolution 67:2577-2591. [doi: 10.1111/evo.12055](http://dx.doi.org/10.1111/evo.12055).
 
 (see [https://www.researchgate.net/profile/Samuel_Flaxman/publications](https://www.researchgate.net/profile/Samuel_Flaxman/publications) for downloads of PDFs)
 
