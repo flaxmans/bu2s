@@ -9,7 +9,7 @@ It includes mutation, selection, migration, recombination, and drift.  A full ex
 
 (see [https://www.researchgate.net/profile/Samuel_Flaxman/publications](https://www.researchgate.net/profile/Samuel_Flaxman/publications) for downloads of PDFs)
 
-Example data sets produced by the code for the publications above are available at DataDryad.org ([http://dx.doi.org/10.5061/dryad.kc596](http://dx.doi.org/10.5061/dryad.kc596), and [http://dx.doi.org/10.5061/dryad.t894r](http://dx.doi.org/10.5061/dryad.t894r)) 
+Example data sets produced by the code for the publications above are available at DataDryad.org ([http://dx.doi.org/10.5061/dryad.kc596](http://dx.doi.org/10.5061/dryad.kc596) and [http://dx.doi.org/10.5061/dryad.t894r](http://dx.doi.org/10.5061/dryad.t894r)), and also at [http://bit.ly/2s6jeIf](http://bit.ly/2s6jeIf) for Schilling et al. 2018. 
 
 Additional capabilities since the publication of those articles includes (1) modeling neutral sites in the genome and (2) collection of additional population genetic metrics.
 
