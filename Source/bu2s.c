@@ -2,7 +2,7 @@
  *  bu2s.c
  *
  *  Created by Samuel Melvin Flaxman on 4/10/12.
- *  Copyright 2012-2018 Samuel Melvin Flaxman.
+ *  Copyright 2012-2019 Samuel Melvin Flaxman.
  *
  */
 
