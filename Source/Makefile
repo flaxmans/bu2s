@@ -1,5 +1,5 @@
 CCFLAGS = -O3
-GSLFLAGS = -lm -I/usr/local/include/gsl -L/usr/local/lib -lgsl -lgslcblas
+GSLFLAGS = -lm -I/usr/include/gsl -L/usr/lib/x86_64-linux-gnu -lgsl -lgslcblas
 TARGET = bu2s
 
 #
@@ -13,7 +13,7 @@ CC = gcc
 # Rule for linking together the object files needed for our program
 #
 ${TARGET}: ${TARGET}.o MT/dSFMT.o PoissonLookup.o LDcalculations.o
-	${CC} ${CCFLAGS} ${GSLFLAGS} -o $@ MT/dSFMT.o PoissonLookup.o LDcalculations.o ${TARGET}.o -lm
+	${CC} ${CCFLAGS} -o $@ MT/dSFMT.o PoissonLookup.o LDcalculations.o ${TARGET}.o -lgsl -lgslcblas -lm
 
 #
 # Rule for how the MT code gets build.  Just go to that directory and
@@ -23,7 +23,7 @@ MT/dSFMT.o:
 	cd MT; make dSFMT.o; cd ..
 
 PoissonLookup.o: PoissonLookup.c bu2s.h
-	${CC} ${CCFLAGS} -c -I/usr/local/include/gsl -DDSFMT_MEXP=19937 -o PoissonLookup.o PoissonLookup.c
+	${CC} ${CCFLAGS} -c ${GSLFLAGS} -DDSFMT_MEXP=19937 -o PoissonLookup.o PoissonLookup.c
 
 LDcalculations.o: LDcalculations.c bu2s.h
 	${CC} ${CCFLAGS} -c -DDSFMT_MEXP=19937 -o LDcalculations.o LDcalculations.c

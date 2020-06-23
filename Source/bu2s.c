@@ -118,7 +118,7 @@ double HVAL = H_DEFAULT;
 _Bool MOSAIC = MOSAIC_DEFAULT;
 double SD_MOVE = SD_MOVE_DEFAULT;
 int nTIME_SAMPLES = nTIME_SAMPLES_DEFAULT;
-long int TS_SAMPLING_FREQUENCY;
+long int TS_SAMPLING_FREQUENCY = 0;
 _Bool OFFSPRING_IN_RANDOM_LOCATIONS = OIRL_DEFAULT;
 double TOTAL_MAP_LENGTH = TOTAL_MAP_LENGTH_DEFAULT;
 int MUTATION_DISTRIBUTION = MUTATION_DISTRIBUTION_DEFAULT;
@@ -368,7 +368,7 @@ void palloc_stats();
 int
 main(int argc, char *argv[])
 {
-    
+
     // read in optional command line arguments ...
     int ch, foo = 0, nSamples = 200;
     char *progname = argv[0];
@@ -381,8 +381,8 @@ main(int argc, char *argv[])
     long int dumli, count, estRunLength;
     _Bool keepGoing = 1, equilibriumReached = 0; // while loop variables
     long int mutationsThisTime, mtt;
-    
-    while ((ch = getopt(argc, argv, "A:a:B:b:C:c:D:d:E:e:F:f:G:g:H:h:I:i:J:K:L:l:M:m:N:n:O:P:p:R:rS:s:T:t:U:u:V:W:w:Z:?")) != -1) {
+
+    while ((ch = getopt(argc, argv, "A:a:B:b:C:c:D:d:E:e:F:f:G:g:H:h:I:i:J:K:L:l:M:m:N:n:O:P:p:R:rS:s:T:t:U:u:V:v:W:w:Z:?")) != -1) {
         switch (ch) {
             case 'A':
                 END_PERIOD_ALLOPATRY = atoi(optarg);
@@ -498,6 +498,9 @@ main(int argc, char *argv[])
             case 'V':
                 RECORD_LD_VALUES = (_Bool) atoi(optarg);
                 break;
+            case 'v':
+                TS_SAMPLING_FREQUENCY = (long int) atoi(optarg);
+                break;
             case 'W':
                 DEME0_CONSTANT_S = strtod(optarg, (char **)NULL);
                 break;
@@ -513,18 +516,18 @@ main(int argc, char *argv[])
                 exit(-1);
         }
     }
-    
+
     if ( gatherLDvalues >= 3 )
         RECORD_LD_VALUES = 1;
-    
+
     estRunLength = setTSfreq();
     if ( PURE_NEUTRAL_MODEL ) {
         FRACTION_SELECTED_LOCI = 0.0;
         RECORD_FIT_TS = 0;
     }
-    
+
     RI_THRESH = fmin( RI_THRESH, (INITIAL_POPULATION_SIZE * SD_MOVE / 1000) );
-    
+
     if ( (PROBABILITY_DERIVED_REVERSED > 0.0) && (PROBABILITY_DERIVED_REVERSED < 1.0) ) {
         DMI_PROBABILITY = DMI_PROBABILITY / ( 2.0 * PROBABILITY_DERIVED_REVERSED * (1.0 - PROBABILITY_DERIVED_REVERSED) );
         POSITIVE_EPI_PROBABILITY = POSITIVE_EPI_PROBABILITY / ( (PROBABILITY_DERIVED_REVERSED * PROBABILITY_DERIVED_REVERSED) + ((1.0 - PROBABILITY_DERIVED_REVERSED) * (1.0 - PROBABILITY_DERIVED_REVERSED)) );
@@ -535,19 +538,19 @@ main(int argc, char *argv[])
         // same for + epistatic interaction
         // hence, prob{DMI} becomes prob / (2pq), and prob{+ epistatic} becomes prob / (p^2 + q^2)
     }
-    
+
     if ( PROBABILITY_DERIVED_REVERSED > 0.0 && PROBABILITY_DERIVED_REVERSED < 1.0 && DMI_PROBABILITY > 0.0 )
         CONSIDER_EPISTASIS = 1;
     else if ( POSITIVE_EPI_PROBABILITY > 0.0 )
         CONSIDER_EPISTASIS = 1;
     else
         CONSIDER_EPISTASIS = 0;  // no need to consider epistatic interactions unless at least one of the above is true
-    
+
     if ( START_WITH_BIG_IN_PLACE && (nPATCHES > 2) ) {
         fprintf(stderr,"\nHey shortsighted programmer: \n\t\tYour algorithm for starting big alleles\n\t\tat mutation-selection balance does not work\n\t\tfor this many patches!\n\n");
         exit(1);
     }
-    
+
     // random number seed
     if (DETERMINISTIC) {
         int seed, rcount;
@@ -557,7 +560,7 @@ main(int argc, char *argv[])
             perror("Can't open RnumSeed.txt");
             exit(-1);
         }
-        
+
         rcount = fscanf(fpt,"%i",&seed);
         if ( rcount ) {
             seedRand(seed);	// fixed random number seed
@@ -573,23 +576,23 @@ main(int argc, char *argv[])
         seedRand(seed_gen());	// get random number seed (system time)
     }
     warmUpRNG();			// necessary?  can't hurt.
-    
-    
+
+
     // get to work
-	
+
 	maxNumCOs = makePoissonLookup();
 	setUpMap();
     setUpMutationSequence();
-    
+
     initializePopulation();
     setUpFitnesses();
-    
+
     openDataFilesForRecording( gatherLDvalues );
-    
+
     // record parameter values
     printParameters(estRunLength);
-    
-    
+
+
     if ( EARLY_TEST_KILL > 0 ) {
         if ( EARLY_TEST_KILL > 1 )
             testPrints();
@@ -602,25 +605,25 @@ main(int argc, char *argv[])
     //
     gettimeofday(&tod, NULL);
     startTime = (long)tod.tv_sec * 1000000 + (long)tod.tv_usec;
-    
+
     // now for the actual loop that does all the business
-    
+
     for ( m = 0; m < nMUTATIONS; m++ ) {
         keepGoing = 1;
         t = 0;
         equilibriumReached = 0;
         lossCount = 0;
-        
+
         while (keepGoing) {
             previousPatches = (int*) palloc(POOL_PREVPATCH,  (sizeof(int) * N) );
-            
+
             // migration
             move();
-            
+
             // a sort is needed for other algorithms after migration happens
             if ( !PURE_ALLOPATRY_MODEL )
                 sortPopulation2();
-            
+
             // introduce the next mutation(s)
             mWasIncremented = 0;
             if ( t == 0 && keepIntroducingMutations ) {
@@ -635,32 +638,32 @@ main(int argc, char *argv[])
                 if ( mWasIncremented )
                     m--; // decrement by one since it also gets incremented one unit above in the for loop.
             }
-            
+
             // replace parents with offspring
             reproduce();
-            
+
             // get some stats about allele frequencies and their changes
             lostByDrift = calculateAlleleFrequencies( gatherLDvalues );
-            
+
             // some bookkeeping at regular intervals
             if ( (totalGenerationsElapsed % TS_SAMPLING_FREQUENCY == 0 && totalGenerationsElapsed > 0 ) || ( (totalGenerationsElapsed+1) == (nMUTATIONS * nGENERATIONS_MAX) ) || RI_REACHED || ( RECORDING_TIMES_IN_FILE && totalGenerationsElapsed == nextRecordingTime ) ) {
-                
-                
-                
+
+
+
                 fprintf(nVarTS,"%li %i %i %i %li %li %li %li %li %li",totalGenerationsElapsed, nVariableLoci, nSELECTED_LOCI, nNEUTRAL_LOCI, totalDMIs, totalPositiveEpis, nPositiveEpisRegular, nPositiveEpisReversed, nRegularLoci, nReversedLoci);
-                
+
                 /* // testcheck
                  if ( (nPositiveEpisRegular + nPositiveEpisReversed) != totalPositiveEpis ) {
                  fprintf( stderr, "\n Positive Epi numbers don't add up!\n\treg = %li, rev = %li, total = %li\nExiting!\n", nPositiveEpisRegular, nPositiveEpisReversed, totalPositiveEpis);
                  exit(1);
                  } */
-                
+
                 for ( ii = 0; ii < nCHROMOSOMES; ii++ )
                     fprintf(nVarTS, " %i", (LOCI_PER_CHROMOSOME[ii] - 2));  // subtract 2 for the reference loci
                 fprintf(nVarTS, "\n");
-                
+
                 //calcDXY(nSamples);
-                
+
                 if ( CONSIDER_EPISTASIS ) {
                     for ( ii = 0; ii < (nLOCI-1); ii++ ) {
                         sipt = epistasisMatrix + (ii * nLOCI) + ii + 1;
@@ -672,7 +675,7 @@ main(int argc, char *argv[])
                         }
                     }
                 }
-                
+
                 if ( RECORDING_TIMES_IN_FILE ) {
                     recordingTimesCompleted++;
                     if ( recordingTimesCompleted < nRecordingTimes ) {
@@ -685,21 +688,21 @@ main(int argc, char *argv[])
                         printParameters(estRunLength);
                     }
                 }
-                
+
             }
-            
+
             if ( RI_REACHED ) {
                 fprintf(stderr,"\nRI_THRESH reached.  Exiting simulation during generation %li\n", totalGenerationsElapsed);
                 printParameters(estRunLength);
                 keepGoing = 0; // break the while loop
                 m = nMUTATIONS + 1; // break the for loop
             }
-            
+
             pfree(previousPatches);
-            
+
             t++;
             totalGenerationsElapsed++;
-            
+
             if ( START_PERIOD_ALLOPATRY > 0 ) {
                 if ( totalGenerationsElapsed == START_PERIOD_ALLOPATRY ) {
                     END_PERIOD_ALLOPATRY = START_PERIOD_ALLOPATRY + PERIOD_ALLOPATRY;
@@ -709,16 +712,16 @@ main(int argc, char *argv[])
             }
             if ( totalGenerationsElapsed == (END_PERIOD_ALLOPATRY))
                 keepIntroducingMutations = 1;
-            
+
             if ( equilibriumReached || t >= nGENERATIONS_MAX ) {
                 keepGoing = 0;
             }
         }
-        
-        
+
+
     }
-    
-    
+
+
     //
     // Report run time and estimate of time need to do a full
     // run on target test machine.  This is based on a ratio of
@@ -728,18 +731,18 @@ main(int argc, char *argv[])
     elapsedTime = (long)tod.tv_sec*1000000 + (long)tod.tv_usec - startTime;
     printf("\nElapsed time:  ");
     printTime(elapsedTime);
-    
+
     printf("Estimated time for full run:  ");
     printTime((long)elapsedTime *
               ((double)nGENERATIONS_MAX_DEFAULT/(double)nGENERATIONS_MAX) *
               ((double)nMUTATIONS_DEFAULT / (double)nMUTATIONS));
-    
+
     fprintf(stderr, "\nEst. run length = %li, actual = %li, diff = %li, obs./exp ratio = %f\n", estRunLength, totalGenerationsElapsed, (estRunLength - totalGenerationsElapsed), ((double) totalGenerationsElapsed)/((double) estRunLength));
-    
+
     testPrints();
     if ( !RI_REACHED )
         printParameters(estRunLength);
-    
+
     fclose(effMigRates);
     fclose(FSTtimeSeries);
     fclose(AFtimeSeries);
@@ -755,7 +758,7 @@ main(int argc, char *argv[])
         pfree(epistasisMatrix);
         pfree(epi_coeff_matrix);
     }
-    
+
     if ( RECORD_FIT_TS ) {
         fclose(fitTSdeme0);
         fclose(fitTSdeme1);
@@ -776,18 +779,18 @@ main(int argc, char *argv[])
     fclose(AFSTS);
     fclose(selAFSTS);
     fclose(neutAFSTS);
-    
+
     closeLDdataFiles( gatherLDvalues );
-    
-    
+
+
     pfree(x_locations);
 #if (D == 2)
     pfree(y_locations);
 #endif
     pfree(genotypes);
     pfree(patch_locations);
-    
-    
+
+
     free(fit0);
     free(fit1);
     free(fitH);
@@ -800,7 +803,7 @@ main(int argc, char *argv[])
     free(S_MAX0_SEQUENCE);
     free(locusID);
     free(vectorOfRecordingTimes);
-    
+
     palloc_stats();
     return 0;
 }
@@ -816,8 +819,8 @@ void addALocus(double mapLoc, int locType)
     int i, j, focalChrom, locus = 0, ii;
     _Bool looking = 1;
     double positionOnFocalChrom = mapLoc, totLength = 0.0;
-    
-    
+
+
     // find where the new locus goes
     i = 0;
     while ( looking ) {
@@ -825,9 +828,9 @@ void addALocus(double mapLoc, int locType)
             fprintf(stderr,"\n\nERROR!  Failed to find correct spot for new locus!\ni = %i, nCHROMOSOMES = %i, positionOnFocalChrom = %f, t = %li, mapLoc = %f, totLength = %f\n", i, nCHROMOSOMES, positionOnFocalChrom, totalGenerationsElapsed, mapLoc, totLength);
             exit(1);
         }
-        
+
         totLength += MAP_LENGTHS[i];
-        
+
         if ( mapLoc <= totLength ) {
             focalChrom = i;
             looking = 0;
@@ -878,7 +881,7 @@ void addALocus(double mapLoc, int locType)
      fprintf(stderr,"%f ", MAP_LENGTHS[i]);
      */
     // end test prints
-    
+
     // adjust global variables accordingly by resizing and copying arrays
     nLOCI++;
     double *newAlleleFreq, *newMAP, *newSMAX1, *newSMAX0, *newH;
@@ -891,9 +894,9 @@ void addALocus(double mapLoc, int locType)
     double *newFit0, *newFit1, *newFitH;
     long int *newLocusID;
     _Bool *newIsReversedLocus, *newAnyEpisAtLocus;
-    
+
     nIndexesAfter = (nLOCI - 1) - newestLocus;
-    
+
     newAlleleFreq = (double *) malloc( sizeof(double) * nLOCI );
     newMAP = (double *) malloc( sizeof(double) * nLOCI );
     newSMAX0 = (double *) malloc( sizeof(double) * nLOCI );
@@ -909,7 +912,7 @@ void addALocus(double mapLoc, int locType)
     newIsReversedLocus = (_Bool *) malloc( sizeof(_Bool) * nLOCI );
     if ( CONSIDER_EPISTASIS )
         newAnyEpisAtLocus = (_Bool *) malloc( sizeof(_Bool) * nLOCI );
-    
+
     if ( nIndexesBefore > 0 ) {
         memcpy( newAlleleFreq, allele_frequencies, (sizeof(double) * nIndexesBefore) );
         memcpy( newMAP, MAP, (sizeof(double) * nIndexesBefore) );
@@ -926,7 +929,7 @@ void addALocus(double mapLoc, int locType)
         if ( CONSIDER_EPISTASIS )
             memcpy( newAnyEpisAtLocus, any_epis_for_this_locus, (sizeof(_Bool) * nIndexesBefore) );
     }
-    
+
     newAlleleFreq[newestLocus] = 0.0;
     newMAP[newestLocus] = positionOnFocalChrom;
     newSMAX0[newestLocus] = S_MAX0_SEQUENCE[m];
@@ -944,16 +947,16 @@ void addALocus(double mapLoc, int locType)
     newIsRefLocus[newestLocus] = 0; // added loci are NOT reference loci
     newFixedAllele[newestLocus] = -1;
     newLocusID[newestLocus] = m; // use mutation counter as the locus ID
-    
+
     newIsReversedLocus[newestLocus] = REVERSAL_SEQUENCE[m];
     if ( (newIsReversedLocus[newestLocus]) )
         nReversedLoci++;
     else
         nRegularLoci++;
-    
+
     if ( CONSIDER_EPISTASIS )
         newAnyEpisAtLocus[newestLocus] = 0;  // will be altered if needed in GrowEpistasisMatrix function
-    
+
     if ( nIndexesAfter > 0 ) {
         memcpy( (newAlleleFreq + newestLocus + 1), (allele_frequencies + newestLocus), (sizeof(double) * nIndexesAfter) );
         memcpy( (newMAP + newestLocus + 1), (MAP + newestLocus), (sizeof(double) * nIndexesAfter) );
@@ -970,25 +973,25 @@ void addALocus(double mapLoc, int locType)
         if ( CONSIDER_EPISTASIS )
             memcpy( (newAnyEpisAtLocus + newestLocus + 1), (any_epis_for_this_locus + newestLocus), (sizeof(_Bool) * nIndexesAfter) );
     }
-    
+
     // copy and adjust genotypes!
     newGtpt = newGenotypes;
     oldGtpt = genotypes;
     for ( i = 0; i < N; i++ ) {
-        
+
         if ( nIndexesBefore > 0 )
             memcpy( newGtpt, oldGtpt, (sizeof(short int) * nIndexesBefore * 2) );
-        
+
         *(newGtpt + (newestLocus*2)) = 0;
         *(newGtpt + (newestLocus*2) + 1) = 0;
-        
+
         if ( nIndexesAfter > 0 )
             memcpy( (newGtpt + (2 * (newestLocus+1))), (oldGtpt + (2 * newestLocus)), (sizeof(short int) * 2 * nIndexesAfter));
-        
+
         newGtpt += (2 * nLOCI);
         oldGtpt += (2 * (nLOCI - 1));
     }
-    
+
     pfree(genotypes);
     genotypes = newGenotypes;
     free(allele_frequencies);
@@ -1009,33 +1012,33 @@ void addALocus(double mapLoc, int locType)
     variable_loci = newVariableLoci;
     free(is_reversed_locus);
     is_reversed_locus = newIsReversedLocus;
-    
+
     free(is_reference_locus);
     is_reference_locus = newIsRefLocus;
     free(fixed_allele);
     fixed_allele = newFixedAllele;
     free(locusID);
     locusID = newLocusID;
-    
+
     LOCI_PER_CHROMOSOME[focalChrom] = LOCI_PER_CHROMOSOME[focalChrom] + 1;
     newFit0 = (double *) malloc( (nLOCI * nPATCHES * sizeof(double)) );
     newFit1 = (double *) malloc( (nLOCI * nPATCHES * sizeof(double)) );
     newFitH = (double *) malloc( (nLOCI * nPATCHES * sizeof(double)) );
-    
+
     // all the loci before the newest one
     if ( nIndexesBefore > 0 ) {
         memcpy( newFit0, fit0, (sizeof(double) * nIndexesBefore * nPATCHES) );
         memcpy( newFit1, fit1, (sizeof(double) * nIndexesBefore * nPATCHES) );
         memcpy( newFitH, fitH, (sizeof(double) * nIndexesBefore * nPATCHES) );
     }
-    
+
     // all the loci after the newest one
     if ( nIndexesAfter > 0 ) {
         memcpy( (newFit0 + (nPATCHES * (newestLocus + 1))), (fit0 + (nPATCHES * newestLocus)), (sizeof(double) * nIndexesAfter * nPATCHES) );
         memcpy( (newFit1 + (nPATCHES * (newestLocus + 1))), (fit1 + (nPATCHES * newestLocus)), (sizeof(double) * nIndexesAfter * nPATCHES) );
         memcpy( (newFitH + (nPATCHES * (newestLocus + 1))), (fitH + (nPATCHES * newestLocus)), (sizeof(double) * nIndexesAfter * nPATCHES) );
     }
-    
+
     // switch the array assignments
     free(fitH);
     fitH = newFitH;
@@ -1043,21 +1046,21 @@ void addALocus(double mapLoc, int locType)
     fit0 = newFit0;
     free(fit1);
     fit1 = newFit1;
-    
+
     // now put in the correct fitness values for the new locus
     adjustFitnesses();
-    
+
     if ( CONSIDER_EPISTASIS ) {
         free(any_epis_for_this_locus);
         any_epis_for_this_locus = newAnyEpisAtLocus;
         growEpistasisMatrix();
     }
-    
+
     // */
-    
-    
-    
-    
+
+
+
+
     /*
      // test prints
      // the map
@@ -1068,31 +1071,31 @@ void addALocus(double mapLoc, int locType)
      for (i=0; i<nCHROMOSOMES; i++) {
      fprintf(stderr, "%i  ", LOCI_PER_CHROMOSOME[i]);
      }
-     
+
      fprintf(stderr, "\n\nThe NEW is_reference_locus:\n");
      for (i=0; i<nLOCI; i++) {
      fprintf(stderr, "%i ", is_reference_locus[i]);
      }
-     
+
      //fprintf(stderr,"\n\nThe lengths of chromosomes in the map of total length %f:\n",TOTAL_MAP_LENGTH);
      //	for ( i = 0; i < nCHROMOSOMES; i++ )
      //		fprintf(stderr,"%f ", MAP_LENGTHS[i]);
-     
+
      fprintf(stderr,"\n\nThe new location in the map:\t%f",mapLoc);
      fprintf(stderr,"\nwill be at position:\t\t%f",positionOnFocalChrom);
      fprintf(stderr,"\non chromosome\t\t\t%i",focalChrom);
      fprintf(stderr,"\nThe index of the locus will be:\t#%li (%li of %li)\n",newestLocus,newestLocus+1,nLOCI);
-     
+
      fprintf(stderr,"\nLocus IDs:\n");
      for ( i = 0; i < nLOCI; i++ )
      fprintf(stderr,"%li ", locusID[i]);
      fprintf(stderr,"\n");
-     
+
      fprintf(stderr,"\nChromosome Membership\n");
      for ( i = 0; i < nLOCI; i++ )
      fprintf(stderr,"%i ", chromosomeMembership[i]);
      fprintf(stderr,"\n");
-     
+
      fprintf(stderr,"\nVariable Loci:\n");
      for ( i = 0; i < nLOCI; i++ )
      fprintf(stderr,"%i ", variable_loci[i]);
@@ -1102,7 +1105,7 @@ void addALocus(double mapLoc, int locType)
      fprintf(stderr,"%i ", i);
      fprintf(stderr,"\n");
      fprintf(stderr,"nVariableLoci = %i\n",nVariableLoci);
-     
+
      fprintf(stderr,"\nfit0\t\t\tfit1\t\t\tfitH\n");
      newFit0 = fit0;
      newFit1 = fit1;
@@ -1124,11 +1127,11 @@ void addALocus(double mapLoc, int locType)
      }
      fprintf(stderr,"\n");
      }
-     
-     
+
+
      fprintf(stderr,"\n*********************************************\n");
-     
-     
+
+
      // end of test prints
      //  */
 }
@@ -1143,7 +1146,7 @@ void bagOfGenes(short int *ogtpt, int *noff, int newN)
     double gtsum, patchAlleleFrequencies[nPATCHES][nLOCI], Ninv;
     double p, q, prHet, prHomo, weightedFitVal, wp, dum;
     long int fitArrayIndex;
-    
+
     // calculate allele frequencies in each patch
     for ( i = 0; i < nPATCHES; i++ ) {
         for ( j = 0; j < nLOCI; j++ ) {
@@ -1172,16 +1175,16 @@ void bagOfGenes(short int *ogtpt, int *noff, int newN)
              if 0 is fixed then then the frequency is 0.0 */
         }
     }
-    
+
     // set all alleles to zero by default, then change only those necessary
     for ( i = 0; i < ( 2 * nLOCI * newN ); i++ ) {
         *opt = 0;
         opt++;
     }
-    
+
     stpt = ogtpt; // points to first allele, first locus, first offspring, first patch
-    
-    
+
+
     // change some to ones
     for ( i = 0; i < nPATCHES; i++ ) {
         nborn = noff[i];
@@ -1248,7 +1251,7 @@ void bagOfGenes(short int *ogtpt, int *noff, int newN)
                     spt += ( 2 * nLOCI ); // advance to second allele of same locus in next offspring
                 }
             }
-            
+
         }
         stpt += ( 2 * nLOCI * nborn );
     }
@@ -1270,16 +1273,16 @@ int calculateAlleleFrequencies(int gatherLDvalues)
     int AFS[dim0], selectedAFS[dim0], neutralAFS[dim0];
     FILE *JAFSTS;
     char fname[80];
-    
+
     for ( i = 0; i < dim0; i++ ) {
         AFS[i] = 0;
         selectedAFS[i] = 0;
         neutralAFS[i] = 0;
     }
-    
+
     /* allele frequencies have been set to zero initially for all loci;
      we only actually  need to check frequencies at loci where mutations have occurred. */
-    
+
     for ( i = 0; i < nLOCI; i++ ) {
         totalAlleles[i] = 0;
         FST[i] = 0.0;
@@ -1287,13 +1290,13 @@ int calculateAlleleFrequencies(int gatherLDvalues)
             allelesByPatch[i][j] = 0;
         }
     }
-    
+
     Ninv = 1.0 / ((double) N);
     for ( i = 0; i < nPATCHES; i++ ) {
         patchWeights[i] = ((double) n_in_each_patch[i]) * Ninv;
         Nsinv[i] = 0.5 / ((double) n_in_each_patch[i]); // 0.5 since each has two alleles for each locus; reduces calc's below
     }
-    
+
     for ( i = 0; i < N; i++ ) {
         patch = patch_locations[i];
         stpt = genotypes + ( 2 * i * nLOCI );
@@ -1306,7 +1309,7 @@ int calculateAlleleFrequencies(int gatherLDvalues)
             }
         }
     }
-    
+
     if ( (totalGenerationsElapsed % TS_SAMPLING_FREQUENCY == 0 && totalGenerationsElapsed > 0 ) || ( (totalGenerationsElapsed+1) == (nMUTATIONS * nGENERATIONS_MAX) ) || RI_REACHED || ( RECORDING_TIMES_IN_FILE && totalGenerationsElapsed == nextRecordingTime ) ) {
         // site frequency spectrum:
         for ( locus = 0; locus < nLOCI; locus++ ) {
@@ -1327,7 +1330,7 @@ int calculateAlleleFrequencies(int gatherLDvalues)
             if ( neutralAFS[i] > 0 )
                 fprintf( neutAFSTS, "%li,%i,%i\n", totalGenerationsElapsed, i, neutralAFS[i] );
         }
-        
+
         // raw data needed for joint site frequency spectrum
         sprintf(fname, "JAFSdata/JAFSdata%li.csv", totalGenerationsElapsed);
         JAFSTS = fopen(fname, "w");
@@ -1372,9 +1375,9 @@ int calculateAlleleFrequencies(int gatherLDvalues)
         fprintf( JAFSTS, "];\n" );
         fclose(JAFSTS);
     }
-    
-    
-    
+
+
+
     // now calculate allele frequencies and FST
     nVariableLoci = 0;
     for ( locus = 0; locus < nLOCI; locus++ ) {
@@ -1401,7 +1404,7 @@ int calculateAlleleFrequencies(int gatherLDvalues)
             }
             else
                 nVariableLoci++;
-            
+
             if ( ((totalGenerationsElapsed % TS_SAMPLING_FREQUENCY) == 0 && totalGenerationsElapsed > 0 ) || ( (totalGenerationsElapsed+1) == (nMUTATIONS * nGENERATIONS_MAX) ) || ( RECORDING_TIMES_IN_FILE && totalGenerationsElapsed == nextRecordingTime ) ) {
                 if ( p <= 0.0 || p >= 1.0 )
                     FST[locus] = 0.0;
@@ -1431,7 +1434,7 @@ int calculateAlleleFrequencies(int gatherLDvalues)
             }
         }
     }
-    
+
     // test stuff about order of entries in memory for 2D array
 //    if ( ((totalGenerationsElapsed % TS_SAMPLING_FREQUENCY) == 0 && totalGenerationsElapsed > 0 ) || ( (totalGenerationsElapsed+1) == (nMUTATIONS * nGENERATIONS_MAX) ) || ( RECORDING_TIMES_IN_FILE && totalGenerationsElapsed == nextRecordingTime ) ) {
 //        double *testpt = &alleleFrequenciesByPatch[0][0];
@@ -1449,7 +1452,7 @@ int calculateAlleleFrequencies(int gatherLDvalues)
 //        }
 //    }
     // end test stuff
-    
+
     if ( ((totalGenerationsElapsed % TS_SAMPLING_FREQUENCY) == 0 && totalGenerationsElapsed > 0 ) || ( (totalGenerationsElapsed+1) == (nMUTATIONS * nGENERATIONS_MAX) ) || ( RECORDING_TIMES_IN_FILE && totalGenerationsElapsed == nextRecordingTime ) ) {
         calcDXY2( &alleleFrequenciesByPatch[0][0] );
         if ( gatherLDvalues >= 1  && nVariableLoci > 1 )
@@ -1462,21 +1465,21 @@ int calculateAlleleFrequencies(int gatherLDvalues)
 //        }
 //        else
 //            fprintf(effMigRates, " 0.0 0.0 0.0 0.0 0.0 0.0\n");
-        
+
     }
-    
+
     if ( ((totalGenerationsElapsed % TS_SAMPLING_FREQUENCY) == 0 && totalGenerationsElapsed > 0 ) || ( (totalGenerationsElapsed+1) == (nMUTATIONS * nGENERATIONS_MAX) ) || ( RECORDING_TIMES_IN_FILE && totalGenerationsElapsed == nextRecordingTime ) ) {
         for ( i = 0; i < nLOCI; i++ ) {
             if ( variable_loci[i] && ((locusID[i] % AL_FREQ_SUBSAMPLE) == 0) ) {
                 if ( FST[i] > FST_MIN_RECORDING_THRESH ) {
                     locType = IS_SELECTED_LOCUS[i];
-                    
+
                     // stats for nearest selected neighboring locus
                     if ( GAMETE_PRODUCTION_MODE > 0 || PURE_NEUTRAL_MODEL )
                         nsn = -1;
                     else
                         nsn = findNearestSelectedNeighbor(i);
-                    
+
                     if ( nsn > 0 ) {
                         nsnDist = fabs( (MAP[i] - MAP[nsn]) );
                         nsnS = S_MAX1[nsn];
@@ -1487,18 +1490,18 @@ int calculateAlleleFrequencies(int gatherLDvalues)
                         nsnS = 0.0;
                         nsnLD = 0.0;
                     }
-                    
-                    
+
+
                     fprintf(FSTtimeSeries,"%li %li %E %E %E %E %i %E %i\n", totalGenerationsElapsed, locusID[i], FST[i], allele_frequencies[i], S_MAX1[i], S_MAX0[i], chromosomeMembership[i], MAP[i], locType);
-                    
+
                     AFdiff = alleleFrequenciesByPatch[i][0] - alleleFrequenciesByPatch[i][1];
-                    
+
                     fprintf(AFtimeSeries, "%li %li", totalGenerationsElapsed, locusID[i]);
                     for ( j = 0; j < nPATCHES; j++ )
                         fprintf(AFtimeSeries, " %E", alleleFrequenciesByPatch[i][j]);
                     fprintf(AFtimeSeries, " %i %i %E %E\n", is_reversed_locus[i], locType, allele_frequencies[i], AFdiff);
-                    
-                    
+
+
                     if ( locType )
                         fprintf(selectedFrequencies,"%li %li %E %E %E %E %E %E %E\n", totalGenerationsElapsed, locusID[i], allele_frequencies[i], AFdiff, S_MAX1[i], FST[i], nsnDist, nsnS, nsnLD);
                     else
@@ -1507,15 +1510,15 @@ int calculateAlleleFrequencies(int gatherLDvalues)
             }
         }
     }
-    
+
     taln = totalAlleles[newestLocus];
-    
+
     if ( nRemovals > 0 ) {
         for ( i = (nRemovals-1); i >= 0; i-- ) { // go backwards so that indexes make sense even after teh first removal
             removeALocus(lociToRemove[i]);
         }
     }
-    
+
     if ( taln < 1 )
         return 1; // latest allele introduced was lost
     else
@@ -1532,12 +1535,12 @@ void calculateFitnesses(double *f, double *fsum)
     double *dpt = f, fitVal, ec, fv1, fv2, resid, ecmult;
     long int fitArrayIndex[nLOCI], SELECTED_LOCI[nSELECTED_LOCI];
     _Bool locusTakenCareOf[nLOCI], invertFitness, useOppositeArray, timeToRecordSstar;
-    
+
     if ( ((totalGenerationsElapsed % TS_SAMPLING_FREQUENCY) == 0 && totalGenerationsElapsed > 0 ) || ( (totalGenerationsElapsed+1) == (nMUTATIONS * nGENERATIONS_MAX) ) || ( RECORDING_TIMES_IN_FILE && totalGenerationsElapsed == nextRecordingTime ) )
         timeToRecordSstar = 1;
     else
         timeToRecordSstar = 0;
-    
+
     int bar = 1;
     p = 0;
     for ( i = 0; i < nLOCI; i++ ) {
@@ -1549,7 +1552,7 @@ void calculateFitnesses(double *f, double *fsum)
         selectedLociGTs[i] = 0;
         locusTakenCareOf[i] = 0;
     }
-    
+
     for ( i = 0; i < N; i++ ) { // over all individuals
         fitVal = 1.0; // base fitness
         p = patch_locations[i]; // get patch number
@@ -1592,7 +1595,7 @@ void calculateFitnesses(double *f, double *fsum)
                                         //fprintf(stderr,"ecmult = %f\n", ecmult);
                                         if ( is_reversed_locus[locus])
                                             ecmult = -ecmult;
-                                        
+
                                         if ( ecmult < 0.0 ) { // derived allele is bad in this patch
                                             invertFitness = 1;
                                             if ( is_reversed_locus[locus] )
@@ -1607,16 +1610,16 @@ void calculateFitnesses(double *f, double *fsum)
                                             else
                                                 useOppositeArray = 0; // no switch: not reversed, not inverted
                                         }
-                                        
+
                                         ecmult = fabs(ecmult); // now we just want the magnitude
                                         ec = 1.0 + (ecmult * ec);
-                                        
+
                                         //fprintf(stderr, "is_reversed_locus[%i] = %i, ecmult = %f, ec = %f\n", locus, is_reversed_locus[locus], ecmult, ec);
-                                        
+
                                         // ecmult is used to create symmetry across the habitat: the enhancements in the right deme
                                         // are offset by reductions in the wrong deme
                                         // ec is now a multiplier that can be used below
-                                        
+
                                         // locus 1
                                         if ( gt1 == 2 ) { // homozygous 1
                                             if ( useOppositeArray )
@@ -1631,7 +1634,7 @@ void calculateFitnesses(double *f, double *fsum)
                                             fprintf(stderr,"locus = %i, locus2 = %i, gt1 = %i, gt2 = %i\n", locus, locus2, gt1, gt2);
                                             exit(1);
                                         }
-                                        
+
                                         // locus 2
                                         if ( gt2 == 2 ) { // homozygous 1
                                             if ( useOppositeArray )
@@ -1647,12 +1650,12 @@ void calculateFitnesses(double *f, double *fsum)
                                             exit(1);
                                         }
                                         //fprintf(stderr, "p = %i, fv1 = %f, fv2 = %f, fv1*fv2 = %f, fitVal = %f\n", p, fv1, fv2, (fv1 * fv2), fitVal);
-                                        
+
                                         if ( fv1 < 1.0 || fv2 < 1.0 ) {
                                             fprintf(stderr,"\nError!  Bad positive interaction calc!\n\tfv1 = %f, fv2 = %f\n", fv1, fv2);
                                             exit(1);
                                         }
-                                        
+
                                         resid = (fv1 * fv2) - 1.0; // get the increase in fitness from this pair of loci
                                         if ( invertFitness ) // negative effect of epistasis
                                             fitVal *= ((1.0 + resid) / (1.0 + (ec * resid))); // fitness diminished by percentage that epi would have increased it in the reciprocal habitat
@@ -1662,7 +1665,7 @@ void calculateFitnesses(double *f, double *fsum)
                                         //fprintf(stderr, "resid = %f, fitmult = %f, fitVal = %f\n", resid, (1.0 + (ec * resid)), fitVal);
                                         //if ( is_reversed_locus[locus] && p == 1 )
                                         //exit(0);
-                                        
+
                                         locusTakenCareOf[locus] = 1;
                                         locusTakenCareOf[locus2] = 1;
                                     }
@@ -1697,8 +1700,8 @@ void calculateFitnesses(double *f, double *fsum)
                 fprintf(stderr, "\nNegative fitness: fitval = %E\n", fitVal);
                 fitVal = 0.0;
             }
-            
-            
+
+
 #elif ( ADDITIVE_FITNESS )
             if ( CONSIDER_EPISTASIS ) {
                 fprintf(stderr,"\nCONSIDER_EPISTASIS = %i\n", CONSIDER_EPISTASIS);
@@ -1720,7 +1723,7 @@ void calculateFitnesses(double *f, double *fsum)
             //                    else
             //                        fitVal = fitVal + (*(fit0 + fitArrayIndex));
             //                }
-            
+
 #endif
         }
         // fitVal is now individual i's fitness over all loci
@@ -2030,12 +2033,12 @@ double calculateLDpairOneOff(int l1, int l2)
     double DD, Dmax, Dprime, Delta;
     short int *gpt1, *gpt2;
     double A = allele_frequencies[l1], B = allele_frequencies[l2];
-    
+
     for ( j = 0; j < 2; j++ ) {
-        
+
         gpt1 = genotypes + (2 * l1) + j; // allele of first locus on chromosome
         gpt2 = genotypes + (2 * l2) + j; // allele on second locus on chromosome
-        
+
         for ( i = 0; i < N; i++ ) {
             if ( *gpt1 ) {
                 if ( *gpt2 ) {
@@ -2056,18 +2059,18 @@ double calculateLDpairOneOff(int l1, int l2)
             gpt1 += (2 * nLOCI);
             gpt2 += (2 * nLOCI);
         }
-        
+
     }
-    
+
     // haplotype frequencies
     oo *= Ninv; // observed 11
     oz *= Ninv; // observed 10
     zo *= Ninv; // observed 01
     zz *= Ninv; // observed 00
-    
+
     DD = (( oo * zz ) - ( zo * oz ));
     Delta = DD / sqrt( A * B * (1.0 - A) * (1.0 - B) );
-    
+
     //
     //	if ( DD > 0.0 )
     //		Dmax = fmin( (A * (1.0 - B)), ((1.0 - A) * B) );
@@ -2075,7 +2078,7 @@ double calculateLDpairOneOff(int l1, int l2)
     //		Dmax = fmin( (A * B), ((1.0 - A) * (1.0 - B)) );
     //
     //	Dprime = DD / Dmax;
-    
+
     return Delta;
 }
 
@@ -2088,9 +2091,9 @@ void makeZygoteChromosomes(int parent, short int *ogtpt)
     double ml, co, spot; // lastco;
 	double crossoverLocations[(maxNumCOs + 1)];
 	double mapDistanceAdd;
-    
+
     opt = ogtpt; // pointer to first allele that offspring will get for first locus of chromosome
-    
+
     //
     // First check the simple/fast case where we're sure
     // there are no variable loci.
@@ -2102,16 +2105,16 @@ void makeZygoteChromosomes(int parent, short int *ogtpt)
         // older code.  Keeps RNG in sync, ensuring same results.
         //
         volatile double jnk;
-        
+
         if ( GAMETE_PRODUCTION_MODE == 1 )
             i = 1;
         else
             i = nCHROMOSOMES * 2;
-        
+
         while (i--)
             jnk  = randU();
         // end of compatibility code
-        
+
         ppt = genotypes + ( 2 * nLOCI * parent );
         for ( i = 0; i < nLOCI; i++ ) {
             *opt = (*ppt); // put the allele in the offspring's genome
@@ -2120,7 +2123,7 @@ void makeZygoteChromosomes(int parent, short int *ogtpt)
         }
         return;
     }
-    
+
     if ( GAMETE_PRODUCTION_MODE == 1 ) { // Genome hitchhiking only; no linkange less than 50 cM;
         ppt = genotypes + ( 2 * nLOCI * parent );
         if ( randU() < 0.5 ) {
@@ -2133,7 +2136,7 @@ void makeZygoteChromosomes(int parent, short int *ogtpt)
             *opt = (*ppt);
         }
         opt += 2; // first locus done
-        
+
 #ifdef notdef
         int loci_count = 0;
         for ( i = 1; i < nLOCI; i++ ) {
@@ -2148,12 +2151,12 @@ void makeZygoteChromosomes(int parent, short int *ogtpt)
             loci_count_2++;
         if (loci_count > 2)
             loci_count_many++;
-        
+
         if (loci_count != nVariableLoci)
             printf("variable loci %d != %d\n", loci_count, nVariableLoci);
-        
+
 #endif
-        
+
         //
         // First check the simple/fast case where we're sure
         // there are no variable loci.
@@ -2166,7 +2169,7 @@ void makeZygoteChromosomes(int parent, short int *ogtpt)
             }
             return;
         }
-        
+
         //
         // Failed the easy case, so need to check each locus
         //
@@ -2188,19 +2191,19 @@ void makeZygoteChromosomes(int parent, short int *ogtpt)
             }
             else // both alleles same
                 ppt += 2;
-            
+
             *opt = (*ppt); // put the allele in the offspring's genome
-            
+
             opt += 2;
         }
     }
-    
+
     else { // linkage matters --> DH and GH (-G 0 on command line)
 		// get number of crossovers events:
 		totalCOcount = lookupPoissonValue();
 		// get crossover locations:
 		getCrossoverLocations(totalCOcount, crossoverLocations);
-		
+
 		// get starting chromosome
         count = 0;
         firstl = 1; // array element to start with (0 taken care of manually before relvant for loop)
@@ -2224,7 +2227,7 @@ void makeZygoteChromosomes(int parent, short int *ogtpt)
             //			count++;
             //			fprintf(stderr, "Count = %i, off allele = %i, parent allele = %i\n",count, (*opt),(*ppt));
             opt += 2; // pointer to next locus on same offspring chromosome (which is being created and stored at the same time in the next block)
-            
+
             //
             // First check the simple/fast case where we're sure
             // there are no variable loci or no crossovers.
@@ -2244,15 +2247,15 @@ void makeZygoteChromosomes(int parent, short int *ogtpt)
                         if ( co < spot ) { // location of crossover is before this locus
 							ncos = 0; // number of crossover events here
 							//fprintf(stderr, "\nCO happening at co = %f, spot = %f, locus = %i, chrom = %i\n", co, spot, l, i);
-							
+
 							do {
 								ncos++; // count this one
 								co_count++; // increment cumulative number of crossing over events here
 								co = crossoverLocations[co_count]; // next location
 							} while ( co < spot );
-							
+
 							//fprintf(stderr, "\nCO happened! ncos = %i, co_count = %i\n", ncos, co_count);
-							
+
                             if ( (ncos % 2) == 1 ) { // if number is odd
 								if ( csome ) {
                                     csome = 0;
@@ -2273,13 +2276,13 @@ void makeZygoteChromosomes(int parent, short int *ogtpt)
                     }
                     else // there is only one type of allele; save time by copying one
                         ppt += 2;
-				
+
                     *opt = (*ppt); // offspring gets selected allele
                     //				count++;
                     //				fprintf(stderr, "Count = %i, off allele = %i, parent allele = %i\n",count, (*opt),(*ppt));
                     opt += 2; // increment offspring pointer.
                 }
-				
+
             }
 			if ( i < (nCHROMOSOMES-1) ) { // if we are going through the loop again
 				startpt = startpt + ( 2 * nl ); // pointer to first allele on next chromosome of the PARENT
@@ -2300,7 +2303,7 @@ void makeZygoteChromosomes(int parent, short int *ogtpt)
 //		fprintf(stderr, "\n");
 //		exit(0);
 //	}
-	
+
 }
 
 
@@ -2309,12 +2312,12 @@ void move(void)
 {
     int i, j, *ipt1, *ipt2;
     double direction, distance, x, y, *xpt, *ypt;
-    
+
     totalMigrants = 0;
-    
+
     for ( i = 0; i < nPATCHES; i++ )
         migrationCount[i] = 0;
-    
+
     if ( PURE_ALLOPATRY_MODEL ) {
         ipt1 = previousPatches;
         ipt2 = patch_locations;
@@ -2325,12 +2328,12 @@ void move(void)
         }
     }
     else {
-        
+
         if ( TWO_DEME ) { // replace with preprocessor #if statment?
             ipt1 = previousPatches;
             ipt2 = patch_locations;
             xpt = x_locations;
-            
+
             for ( i = 0; i < N; i++ ) {
                 *ipt1 = (*ipt2);
                 if ( totalGenerationsElapsed > END_PERIOD_ALLOPATRY ) {
@@ -2357,7 +2360,7 @@ void move(void)
                 ipt2++;
             }
         }
-        
+
         else {
             ipt1 = previousPatches;
             ipt2 = patch_locations;
@@ -2365,10 +2368,10 @@ void move(void)
 #if ( D == 2 )
             ypt = y_locations;
 #endif
-            
+
             for ( i = 0; i < N; i++ ) {
                 *ipt1 = (*ipt2);
-                
+
 #if ( D == 1 )
                 if ( totalGenerationsElapsed > END_PERIOD_ALLOPATRY ) {
                     x = boxMuller((*xpt),SD_MOVE);
@@ -2391,10 +2394,10 @@ void move(void)
                 if ( totalGenerationsElapsed > END_PERIOD_ALLOPATRY ) {
                     direction = TWOPI * randU(); // direction in radians
                     distance = fabs( boxMuller(0.0, SD_MOVE) );
-                    
+
                     x = (*xpt);
                     y = (*ypt);
-                    
+
                     x = x + (cos(direction) * distance);
                     if ( x > 1.0 )
                         *xpt = 1.0;
@@ -2402,7 +2405,7 @@ void move(void)
                         *xpt = 0.0;
                     else
                         *xpt = x;
-                    
+
                     y = y + (sin(direction) * distance);
                     if ( y > 1.0 )
                         *ypt = 1.0;
@@ -2410,14 +2413,14 @@ void move(void)
                         *ypt = 0.0;
                     else
                         *ypt = y;
-                    
-                    
+
+
                     *ipt2 = scalarPatchNumber((*xpt),(*ypt));
-                    
+
                     ypt++;
                 }
 #endif
-                
+
                 if ( totalGenerationsElapsed > END_PERIOD_ALLOPATRY ) {
                     if ( (*ipt2) != (*ipt1) ) {
                         totalMigrants++; // count the movement
@@ -2429,18 +2432,18 @@ void move(void)
                 xpt++;
                 ipt1++;
                 ipt2++;
-                
+
             }
         }
     }
-    
-    
+
+
     if ( (totalGenerationsElapsed % TS_SAMPLING_FREQUENCY == 0 && totalGenerationsElapsed > 0 ) || ( (totalGenerationsElapsed+1) == (nMUTATIONS * nGENERATIONS_MAX) ) || ( RECORDING_TIMES_IN_FILE && totalGenerationsElapsed == nextRecordingTime ) ) {
         double migrationRates[nPATCHES];
         for ( i = 0; i < nPATCHES; i++ ) {
             if ( n_in_each_patch[i] < 1 )
                 fprintf(stderr,"\nERROR!  %i individuals in patch %i\n", n_in_each_patch[i],i);
-            
+
             if ( migrationCount[i] > 0 ) {
                 migrationRates[i] = ((double) migrationCount[i]) / ((double) n_in_each_patch[i]);
             }
@@ -2448,13 +2451,13 @@ void move(void)
                 migrationRates[i] = 0.0;
             }
         }
-        
+
         //fprintf(grossMigRates,"%li", totalGenerationsElapsed);
         for ( i = 0; i < nPATCHES; i++ )
             fprintf(grossMigRates,"%G ",migrationRates[i]);
         fprintf(grossMigRates,"\n");
     }
-    
+
 }
 
 
@@ -2466,8 +2469,8 @@ void nextMutation(void)
     double locationOfNextMutation;
     int number_established = nVariableLoci;
     short int *gtpt;
-    
-    
+
+
     locationOfNextMutation = MUTATION_ORDER[m];
     if ( START_WITH_BIG_IN_PLACE && m < NUMBER_BIG_TO_ESTABLISH ) {
         // overrides if needed; may be redundant, but that is OK
@@ -2476,17 +2479,17 @@ void nextMutation(void)
     }
     else
         locType = MUTATION_TYPE_SEQUENCE[m];
-    
+
     addALocus(locationOfNextMutation, locType);
-    
+
     locus = newestLocus;
     pm = MUTATION_LOCATIONS[m];
-    
-    
+
+
     variable_loci[locus] = 1;
     nVariableLoci++;
-    
-    
+
+
     if ( START_WITH_BIG_IN_PLACE && m < NUMBER_BIG_TO_ESTABLISH ) {
         S_MAX0[locus] = BIG_START_S_VAL;
         S_MAX1[locus] = BIG_START_S_VAL;
@@ -2519,7 +2522,7 @@ void nextMutation(void)
             exit(1);
         }
     }
-    
+
     else { // it is NOT a "big one" to start near migration-selection balance
         // introduce it in a random patch
         firstIndex = 0;
@@ -2533,20 +2536,20 @@ void nextMutation(void)
             }
             // */ // end test check
         }
-        
+
         // test check
         if ( n_in_each_patch[pm] < 1 )
             fprintf(stderr,"\nERROR!  %i individuals in patch %i\n", n_in_each_patch[pm], pm);
-        
+
         luckyOne = firstIndex + ( randI() % n_in_each_patch[pm] ); // randomly chosen individual
-        
+
         if ( randU() < 0.5 )
             alleleToMutate = 2 * locus;
         else
             alleleToMutate = ( 2 * locus ) + 1;
-        
+
         genotypei = (luckyOne * 2 * nLOCI) + alleleToMutate; // the index of the entry to change in the genotypes array
-        
+
         if ( genotypes[genotypei] ) { // if the 1 allele fixed
             genotypes[genotypei] = 0;
             allele_frequencies[locus] = 1.0 - ( 0.5 / ((double) N) );
@@ -2556,7 +2559,7 @@ void nextMutation(void)
             allele_frequencies[locus] = 0.5 / ((double) N);
         }
     }
-    
+
     /* // test
      short int *newGtpt;
      int j;
@@ -2569,7 +2572,7 @@ void nextMutation(void)
      }
      fprintf(stderr,"\n");
      }
-     
+
      fprintf(stderr, "\n\nMutation at locus %i\n", locus);
      fprintf(stderr, "Lucky one = index %i in patch %i:\n", luckyOne, patch_locations[luckyOne]);
      for ( i = 0; i < (nLOCI * 2); i++ ) {
@@ -2593,19 +2596,19 @@ void removeALocus(int locusToRemove)
     double *ept;
     size_t sizeNeeded;
     long int dum = locusID[locusToRemove];
-    
+
     if ( locType )
         nSELECTED_LOCI--;
     else
         nNEUTRAL_LOCI--;
-    
+
     if ( is_reversed_locus[locusToRemove] )
         nReversedLoci--;
     else
         nRegularLoci--;
-    
+
     fprintf(logOfRemovedLoci, "%li %li %E %i %E %E %E %i %i\n", totalGenerationsElapsed, dum, MAP[locusToRemove], focalChrom, S_MAX0[locusToRemove], S_MAX1[locusToRemove], H[locusToRemove], is_reversed_locus[locusToRemove], locType);
-    
+
     if ( nMoving > 0 ) {
         memmove( (allele_frequencies + locusToRemove), (allele_frequencies + firstIndexToMove), (sizeof(double) * nMoving) );
         memmove( (MAP + locusToRemove), (MAP + firstIndexToMove), (sizeof(double) * nMoving) );
@@ -2618,41 +2621,41 @@ void removeALocus(int locusToRemove)
         memmove( (is_reference_locus + locusToRemove), (is_reference_locus + firstIndexToMove), (sizeof(int) * nMoving) );
         memmove( (fixed_allele + locusToRemove), (fixed_allele + firstIndexToMove), (sizeof(short int) * nMoving) );
         memmove( (locusID + locusToRemove), (locusID + firstIndexToMove), (sizeof(long int) * nMoving) );
-        
-        
+
+
         sizeNeeded = nPATCHES * nMoving * sizeof(double);
-        
+
         memmove( (fit0 + (nPATCHES * locusToRemove)), (fit0 + ( nPATCHES * (locusToRemove + 1) )), sizeNeeded );
         memmove( (fit1 + (nPATCHES * locusToRemove)), (fit1 + ( nPATCHES * (locusToRemove + 1) )), sizeNeeded );
         memmove( (fitH + (nPATCHES * locusToRemove)), (fitH + ( nPATCHES * (locusToRemove + 1) )), sizeNeeded );
     }
-    
+
     LOCI_PER_CHROMOSOME[focalChrom] = LOCI_PER_CHROMOSOME[focalChrom] - 1;
-    
+
     // adjust genotypes!
     srcPt = genotypes + (locusToRemove * 2) + 2;
     destPt = genotypes + (locusToRemove * 2);
-    
+
     sizeNeeded = 2 * (nLOCI - 1) * sizeof(short int);
-    
+
     for ( i = 0; i < N; i++ ) {
-        
+
         if ( i < (N-1) )
             memmove( destPt, srcPt, sizeNeeded );
         else
             memmove( destPt, srcPt, (2 * nMoving * sizeof(short int)) );
-        
+
         destPt += (2 * ( nLOCI - 1 ));
         srcPt += (2 * nLOCI);
     }
-    
-    
+
+
     if ( CONSIDER_EPISTASIS )
         shrinkEpistasisMatrix(locusToRemove);
-    
+
     if ( nMoving > 0 )
         memmove( (is_reversed_locus + locusToRemove), (is_reversed_locus + firstIndexToMove), (sizeof(_Bool) * nMoving) );
-    
+
     if ( CONSIDER_EPISTASIS ) {
         srcPt = epistasisMatrix;
         for ( i = 0; i < (nLOCI-1); i++ )  // use nLOCI-1 since epistasisMatrix is already "shrunk" but nLOCI not yet decremented
@@ -2668,11 +2671,11 @@ void removeALocus(int locusToRemove)
             }
         }
     }
-    
-    
+
+
     nLOCI--;
-    
-    
+
+
     /*
      // test prints
      // the map
@@ -2683,22 +2686,22 @@ void removeALocus(int locusToRemove)
      for (i=0; i<nCHROMOSOMES; i++) {
      fprintf(stderr, "%i  ", LOCI_PER_CHROMOSOME[i]);
      }
-     
+
      fprintf(stderr, "\n\nThe NEW is_reference_locus:\n");
      for (i=0; i<nLOCI; i++) {
      fprintf(stderr, "%i ", is_reference_locus[i]);
      }
-     
+
      fprintf(stderr,"\nLocus IDs:\n");
      for ( i = 0; i < nLOCI; i++ )
      fprintf(stderr,"%li ", locusID[i]);
      fprintf(stderr,"\n");
-     
+
      fprintf(stderr,"\nChromosome Membership\n");
      for ( i = 0; i < nLOCI; i++ )
      fprintf(stderr,"%i ", chromosomeMembership[i]);
      fprintf(stderr,"\n");
-     
+
      fprintf(stderr,"\nVariable Loci:\n");
      for ( i = 0; i < nLOCI; i++ )
      fprintf(stderr,"%i ", variable_loci[i]);
@@ -2708,7 +2711,7 @@ void removeALocus(int locusToRemove)
      fprintf(stderr,"%i ", i);
      fprintf(stderr,"\n");
      fprintf(stderr,"nVariableLoci = %i\n",nVariableLoci);
-     
+
      fprintf(stderr,"\nlocus\tfit0\t\t\tfit1\t\t\tfitH\n");
      double *newFit0 = fit0;
      double *newFit1 = fit1;
@@ -2731,10 +2734,10 @@ void removeALocus(int locusToRemove)
      }
      fprintf(stderr,"\n");
      }
-     
-     
+
+
      fprintf(stderr,"\n");
-     
+
      //exit(-1);
      // end of test prints
      //  */
@@ -2757,15 +2760,15 @@ void reproduce(void)
     int	*ipt1, *ipt2;
     double offPerParent[N];
     long int nReproducers;
-    
+
     //	for ( i = 0; i < nPATCHES; i++ )
     //		nEffectiveMigrants[i] = 0.0;
-    
-    
+
+
     // first, determine how many new offspring will be born
     if ( FIXED_N )
         newN = N;
-    
+
     for ( i = 0; i < nPATCHES; i++ ) {
         if ( FIXED_N )
             n_off_born[i] = n_in_each_patch[i];
@@ -2781,14 +2784,14 @@ void reproduce(void)
                                                                            in some white noise */
                 if ( n_off_born[i] < 0 )
                     n_off_born[i] = 0;
-                
+
                 newN += n_off_born[i];
             }
         }
     }
-    
+
     off_genotypes = (short int*) palloc(POOL_GENOTYPES, ( sizeof(short int) * newN * 2 * nLOCI ) );
-    
+
     ///*	off_x = (double*) palloc( ( sizeof(double) * newN ) );
     //#if (D == 2)
     //	off_y = (double*) palloc( ( sizeof(double) * newN ) );
@@ -2796,9 +2799,9 @@ void reproduce(void)
     //*/
     // now we know how many offspring to produce in each patch
     // figure out fitnesses
-    
+
     //fprintf(stderr, "\nstart = %G",randU());
-    
+
     if ( GAMETE_PRODUCTION_MODE == 2 ) { // bag of genes
         if ( ((totalGenerationsElapsed % TS_SAMPLING_FREQUENCY) == 0 && totalGenerationsElapsed > 0 ) || ( (totalGenerationsElapsed+1) == (nMUTATIONS * nGENERATIONS_MAX) ) || ( RECORDING_TIMES_IN_FILE && totalGenerationsElapsed == nextRecordingTime ) ) {
             for ( j = 0; j < nPATCHES; j++ )
@@ -2811,12 +2814,12 @@ void reproduce(void)
     else {
         for ( j = 0; j < nPATCHES; j++ )
             fitSum[j] = 0.0;
-        
+
         calculateFitnesses(fitnesses,fitSum); // think of fitnesses as the vector of individuals, but with each individual weighted by its fitness
-        
+
         if ( ((totalGenerationsElapsed % TS_SAMPLING_FREQUENCY) == 0 && totalGenerationsElapsed > 0 ) || ( (totalGenerationsElapsed+1) == (nMUTATIONS * nGENERATIONS_MAX) ) || ( RECORDING_TIMES_IN_FILE && totalGenerationsElapsed == nextRecordingTime ) )
             calcExpectedME(fitnesses, fitSum);
-        
+
         /* // test
          fprintf(stderr, "\n\n");
          for ( i = 0; i < nPATCHES; i++ )
@@ -2830,7 +2833,7 @@ void reproduce(void)
         if ( ((totalGenerationsElapsed % TS_SAMPLING_FREQUENCY) == 0  && totalGenerationsElapsed > 0) || ( RECORDING_TIMES_IN_FILE && totalGenerationsElapsed == nextRecordingTime )  ) {
             fprintf(effPopSizeData, "%li", totalGenerationsElapsed);
         }
-        
+
         // now use fitnesses to make offspring
         firsti = 0;
         lasti = n_in_each_patch[0] - 1;
@@ -2840,13 +2843,13 @@ void reproduce(void)
         for ( j = 0; j < nPATCHES; j++ ) {
             no = n_off_born[j];
             nj = n_in_each_patch[j];
-            
+
             if ( ((totalGenerationsElapsed % TS_SAMPLING_FREQUENCY) == 0  && totalGenerationsElapsed > 0) || ( RECORDING_TIMES_IN_FILE && totalGenerationsElapsed == nextRecordingTime ) ) {
                 nReproducers = 0;
                 for ( i = firsti; i <= lasti; i++ )
                     offPerParent[i] = 0.0;
             }
-            
+
             if ( no > 0 ) {
                 dN = ((double) nj) - 1.0;
                 fs = fitSum[j];
@@ -2888,7 +2891,7 @@ void reproduce(void)
                             while ( (mom > firsti) && (fitnesses[(mom-1)] > fitVal) ) {
                                 mom--;
                             }
-                            
+
                             // choose second parent
                             do {
                                 dumd = randU();
@@ -2916,7 +2919,7 @@ void reproduce(void)
                             //fprintf(stderr, "dad and mom = \t%i\t%i\n", dad, mom);
                         }
                     }
-                    
+
                     else if ( nj == 2 ) {  // when there are exactly two present in the patch, it's easy to choose.
                         if ( randU() < 0.5 ) {
                             mom = firsti;
@@ -2927,21 +2930,21 @@ void reproduce(void)
                             dad = firsti;
                         }
                     }
-                    
+
                     else if ( nj == 1 ) { // selfing only allowed when FIXED_N == 1, otherwise we would't have entered this loop.
                         mom = firsti;
                         dad = firsti;
                     }
-                    
+
                     // now mom and dad are established for this offspring:
                     //					if ( previousPatches[mom] != j )
                     //						nEffectiveMigrants[j] += 1.0;
                     //
                     //					if ( previousPatches[dad] != j )
                     //						nEffectiveMigrants[j] += 1.0;
-                    
+
                     // now use the dad and mom to make a zygote
-                    
+
                     /* // db
                      for ( ii = 0; ii < nLOCI; ii++ ) {
                      if ( variable_loci[ii] != 0 && variable_loci[ii] != 1 ) {
@@ -2950,7 +2953,7 @@ void reproduce(void)
                      }
                      }
                      // */ // end db
-                    
+
                     if ( ((totalGenerationsElapsed % TS_SAMPLING_FREQUENCY) == 0 && totalGenerationsElapsed > 0) || ( RECORDING_TIMES_IN_FILE && totalGenerationsElapsed == nextRecordingTime ) ) {
                         if ( offPerParent[mom] < 1.0 )
                             nReproducers++;
@@ -2959,10 +2962,10 @@ void reproduce(void)
                         offPerParent[mom] = offPerParent[mom] + 1.0;
                         offPerParent[dad] = offPerParent[dad] + 1.0;
                     }
-                    
+
                     makeZygoteChromosomes(mom,(off_genotypes + (2 * nLOCI * offCount)));
                     makeZygoteChromosomes(dad,(off_genotypes + (2 * nLOCI * offCount) + 1));
-                    
+
                     /* // db
                      for ( ii = 0; ii < nLOCI; ii++ ) {
                      if ( variable_loci[ii] != 0 && variable_loci[ii] != 1 ) {
@@ -2971,7 +2974,7 @@ void reproduce(void)
                      }
                      }
                      // */ // end db
-                    
+
                     if ( !OFFSPRING_IN_RANDOM_LOCATIONS ) {
                         off_x[offCount] = x_locations[mom];
 #if ( D == 2 )
@@ -2987,7 +2990,7 @@ void reproduce(void)
                     // */ // end test check
                 }
             }
-            
+
             if ( ((totalGenerationsElapsed % TS_SAMPLING_FREQUENCY) == 0 && totalGenerationsElapsed > 0) || ( RECORDING_TIMES_IN_FILE && totalGenerationsElapsed == nextRecordingTime ) ) {
                 if ( no > 0 )
                     fprintf(effPopSizeData, " %i %i %li %E %E", j, no, nReproducers, calcMeanMagnitude(&offPerParent[firsti], nj), calcVariance(&offPerParent[firsti], nj));
@@ -2995,7 +2998,7 @@ void reproduce(void)
                     fprintf(effPopSizeData, " 0 0 0 0.0 0.0");
                 // mean should always be 2 offspring/parent unless population size is not fixed, so that is really just a check on the system
             }
-            
+
             firsti = lasti + 1;
             if ( j < (nPATCHES-1) )
                 lasti = lasti + n_in_each_patch[(j+1)];
@@ -3003,10 +3006,10 @@ void reproduce(void)
         if ( ((totalGenerationsElapsed % TS_SAMPLING_FREQUENCY) == 0 && totalGenerationsElapsed > 0) || ( RECORDING_TIMES_IN_FILE && totalGenerationsElapsed == nextRecordingTime ) )
             fprintf(effPopSizeData, "\n");
     }
-    
-    
+
+
     // copy from offspring array to parent array
-    
+
     // re-size arrays if necessary
     if ( !FIXED_N ) {
         pfree(patch_locations);
@@ -3018,7 +3021,7 @@ void reproduce(void)
         y_locations = (double*) palloc(POOL_Y_LOCATIONS, sizeof(double) * newN );
 #endif
     }
-    
+
     // deal with locations
     if ( GAMETE_PRODUCTION_MODE == 2 || OFFSPRING_IN_RANDOM_LOCATIONS ) {
         if ( !FIXED_N ) { /* here we can't just re-use the old locations since the numbers may differ; hence, we choose random
@@ -3051,7 +3054,7 @@ void reproduce(void)
         }
         // no "else" is needed here because if FIXED_N == 1, then just use the same x and y locations
     }
-    
+
     else { //  offspring are born where mom was
         dpt1 = x_locations;
         dpt2 = off_x;
@@ -3076,17 +3079,17 @@ void reproduce(void)
             }
         }
     }
-    
+
     // copy the new genotypes
     pfree(genotypes);  // free the old block that is no longer needed
     genotypes = off_genotypes; // assign the global to the new array
-    
+
     if ( !FIXED_N ) {
         N = newN;
         for ( i = 0; i < nPATCHES; i++ )
             n_in_each_patch[i] = n_off_born[i];
     }
-    
+
     //	if ( GAMETE_PRODUCTION_MODE < 2 ) {
     //		for ( j = 0; j < nPATCHES; j++ )
     //			fprintf(effMigRates,"%G, ", (nEffectiveMigrants[j] / ( 2.0 * ((double) (n_off_born[j])))) );
@@ -3102,21 +3105,21 @@ void setUpFitnesses(void)
     int fitArrayIndex;
     size_t sizeNeeded;
     double incr;
-    
+
     sizeNeeded = (size_t) (nLOCI * nPATCHES * sizeof(double));
-    
+
     fit0 = (double *) malloc( sizeNeeded );
     fit1 = (double *) malloc( sizeNeeded );
     fitH = (double *) malloc( sizeNeeded );
-    
-    
+
+
     for ( i = 0; i < nLOCI; i++ )
         H[i] = HVAL; // could be changed later if there is different H for each locus
-    
+
     memset(fit0, 0, sizeNeeded);
     memset(fit1, 0, sizeNeeded);
     memset(fitH, 0, sizeNeeded);
-    
+
     if ( nPATCHES == 2 ) {
         for ( i = 0; i < nLOCI; i++ ) {
             if ( IS_SELECTED_LOCUS[i] ) {
@@ -3124,9 +3127,9 @@ void setUpFitnesses(void)
                 fit0[(i * nPATCHES)] = S_MAX0[i];
                 fit1[(i * nPATCHES)] = 0.0;
                 fitH[(i * nPATCHES)] = ( 1.0 - H[i] ) * S_MAX0[i]; // H[i] is the dominance coefficient for 1 alleles
-                
+
                 //fprintf(stderr, "I'm here. locus = %i, fit0 = %G, fit1 = %G, fitH = %G\n",i,fit0[(i * nPATCHES)],fit1[(i * nPATCHES)],fitH[(i * nPATCHES)]);
-                
+
                 // patch 1, where 1 is the best allele
                 fit0[((i * nPATCHES) + 1)] = 0.0;
                 fit1[((i * nPATCHES) + 1)] = S_MAX1[i];
@@ -3136,7 +3139,7 @@ void setUpFitnesses(void)
         epi_patch_multipliers[0] = -1.0;
         epi_patch_multipliers[1] = 1.0;
     }
-    
+
     else if ( D == 2 && nPATCHES == 4 ) {
         for ( i = 0; i < nLOCI; i++ ) {
             if ( IS_SELECTED_LOCUS[i] ) {
@@ -3148,7 +3151,7 @@ void setUpFitnesses(void)
                 fitH[(i * nPATCHES)] = ( 1.0 - H[i] ) * S_MAX0[i]; // H[i] is the dominance coefficient for 1 alleles
                 fitH[((i * nPATCHES) + 2)] = fitH[(i * nPATCHES)];
                 //fprintf(stderr, "I'm here. locus = %i, fit0 = %G, fit1 = %G, fitH = %G\n",i,fit0[(i * nPATCHES)],fit1[(i * nPATCHES)],fitH[(i * nPATCHES)]);
-                
+
                 // patch 1, where 1 is the best allele
                 fit0[((i * nPATCHES) + 1)] = 0.0;
                 fit0[((i * nPATCHES) + 3)] = fit0[((i * nPATCHES) + 1)];
@@ -3163,7 +3166,7 @@ void setUpFitnesses(void)
         epi_patch_multipliers[2] = -1.0;
         epi_patch_multipliers[3] = 1.0;
     }
-    
+
     else if ( MOSAIC ) {
         // set up the random mosaic
         int count1 = 0, count0 = 0, dum;
@@ -3195,7 +3198,7 @@ void setUpFitnesses(void)
                 count1--;
             }
         }
-        
+
         for ( j = 0; j < nPATCHES; j++ ) {
             if ( BEST_ALLELE_IN_PATCH[j] ) { // 1 is best allele
                 for ( i = 0; i < nLOCI; i++ ) {
@@ -3227,15 +3230,15 @@ void setUpFitnesses(void)
                 epi_patch_multipliers[i] = -1.0;
         }
     }
-    
+
     else {
         // gradient
         double step0, step1, maxH, HstepUp, HstepDown, avg;
         int maxHpatch, rowNum, colNum, nSteps, midPatch1, midPatch2;
-        
+
         for ( i = 0; i < nLOCI; i++ ) {
             if ( IS_SELECTED_LOCUS[i] ) {
-                
+
                 // increment of change
                 if ( D == 1) {
                     step0 = S_MAX0[i] / ( (double) (PATCHES - 1) );
@@ -3257,21 +3260,21 @@ void setUpFitnesses(void)
                     else if ( H[i] > 0.0 && maxHpatch == 0 )
                         maxHpatch++;
                 }
-                
+
                 // upper row; best for 0
                 fit0[((i * nPATCHES))] = S_MAX0[i];
                 fit1[((i * nPATCHES))] = 0.0;
                 fitH[((i * nPATCHES))] = ( 1.0 - H[i] ) * S_MAX0[i];
-                
+
                 // lower row; best for 1
                 fit0[((i * nPATCHES) + nPATCHES - 1)] = 0.0;
                 fit1[((i * nPATCHES) + nPATCHES - 1)] = S_MAX1[i];
                 fitH[((i * nPATCHES) + nPATCHES - 1)] = H[i] * S_MAX1[i];
-                
+
                 maxH = ( (1.0 - H[i]) * S_MAX0[i] ) + ( H[i] * S_MAX1[i] );
                 HstepUp = (maxH - fitH[(i * nPATCHES)]) / ( (double) maxHpatch );
                 HstepDown = (maxH - fitH[((i * nPATCHES) + nPATCHES - 1)]) / ( (double) ((PATCHES - 1) - maxHpatch) );
-                
+
                 for ( j = 1; j < nPATCHES; j++ ) {
                     if ( D == 1 ) {
                         fit0[(i * nPATCHES)] = fit0[(i * nPATCHES)] - (step0 * ((double) j));
@@ -3302,7 +3305,7 @@ void setUpFitnesses(void)
                 }
             }
         }
-        
+
         // set up epi_patch_multipliers
         if ( D == 1) {
             if ( (PATCHES % 2) == 0 ) { // even number of patches
@@ -3341,12 +3344,12 @@ void setUpFitnesses(void)
                 else
                     epi_patch_multipliers[i] = -1.0 + (rowNum * incr);
             }
-            
+
         }
-        
+
     }
-    
-    
+
+
     if ( MULTIPLICATIVE_FITNESS ) {  // adjust values for multiplying by a factor rather than adding selection coefficients in the additive case
         for ( i = 0; i < nLOCI; i++ ) {
             for ( j = 0; j < nPATCHES; j++ ) {
@@ -3356,29 +3359,29 @@ void setUpFitnesses(void)
             }
         }
     }
-    
+
 }
 
 
 void setUpMap(void)
 {
     int i, j, locus, count;
-    
+
     if ( MAP_TYPE == 1 ) { // "infinite sites" random map
         int foo, diff, putHere, loci, startLocus;
         double spot, ml, meanDist;
-        
+
         nLOCI = 2 * nCHROMOSOMES;
-        
+
         allocateGlobals();
-        
+
         for ( i = 0; i < nCHROMOSOMES; i++ ) {
             MAP_LENGTHS[i] = TOTAL_MAP_LENGTH / ((double) nCHROMOSOMES);
             LOCI_PER_CHROMOSOME[i] = 2;
             MAP[(2*i)] = 0.0;
             MAP[((2*i) + 1)] = MAP_LENGTHS[i];
         }
-        
+
         for ( i = 0; i < nLOCI; i++ ) {
             is_reference_locus[i] = 1;
             IS_SELECTED_LOCUS[i] = 0;
@@ -3386,20 +3389,20 @@ void setUpMap(void)
             is_reversed_locus[i] = 0;
         }
     }
-    
+
     else if ( MAP_TYPE == 2 ) {
         loadMapFromFile();
         fprintf(stderr, "\n\nError!  Function not yet defined!! Exiting\n\n");
         exit(1);
     }
-    
+
     else {
         // default map, in cM, based on previous simulations
         fprintf(stderr, "\n\nError!  MAP_TYPE Not defined!! Exiting\n\n");
         exit(1);
     }
-    
-    
+
+
     j = LOCI_PER_CHROMOSOME[0];
     int chrom = 0;
     for ( i = 0; i < nLOCI; i++ ) {
@@ -3410,7 +3413,7 @@ void setUpMap(void)
         chromosomeMembership[i] = chrom;
         //printf("chrom member %i\n", chromosomeMembership[i]);
     }
-    
+
 }
 
 
@@ -3418,13 +3421,13 @@ void setUpMutationSequence(void)
 {
     int j, count_n, candidate;
     long int i;
-    
+
     MUTATION_ORDER = (double *) malloc( sizeof(double) * nMUTATIONS );
     MUTATION_TYPE_SEQUENCE = (int *) malloc( sizeof(int) * nMUTATIONS );
     MUTATION_LOCATIONS = (int *) malloc( sizeof(int) * nMUTATIONS );
     H_SEQUENCE = (double *) malloc( sizeof(double) * nMUTATIONS );
     REVERSAL_SEQUENCE = (_Bool *) malloc( sizeof(_Bool) * nMUTATIONS );
-    
+
     if (USE_MUTATIONS_FROM_FILES) {
         // read in order of loci affected and values of S_MAX
         fprintf(stderr, "\n\nERROR!  USE_MUTATIONS_FROM_FILES algorithm not defined! \n\n\tExiting from function setUpMutationSequence()...\n\n");
@@ -3433,12 +3436,12 @@ void setUpMutationSequence(void)
     else {
         // make sequence of loci affected and associated values of S_MAX
         _Bool keepLooking = 1;
-        
+
         for ( i = 0; i < nLOCI; i++ ) {
             S_MAX1[i] = 0.0;
             S_MAX0[i] = 0.0;
         }
-        
+
         for ( i = 0; i < nMUTATIONS; i++ ) {
             MUTATION_ORDER[i] = randU() * TOTAL_MAP_LENGTH;
             MUTATION_LOCATIONS[i] = randI() % nPATCHES;
@@ -3450,12 +3453,12 @@ void setUpMutationSequence(void)
                 else
                     MUTATION_TYPE_SEQUENCE[i] = 0;
             }
-            
+
             if ( randU() < PROBABILITY_DERIVED_REVERSED )
                 REVERSAL_SEQUENCE[i] = 1;
             else
                 REVERSAL_SEQUENCE[i] = 0;
-            
+
             if ( MUTATION_TYPE_SEQUENCE[i] ) {
                 if ( MUTATION_DISTRIBUTION == 3 ) {
                     S_MAX1_SEQUENCE[i] = DEME1_CONSTANT_S;
@@ -3474,10 +3477,10 @@ void setUpMutationSequence(void)
                 H_SEQUENCE[i] = HVAL;
             }
         }
-        
+
         double *sortedS, valAtPercent, width, maxVal;
         int numInTail, numToFlatten;
-        
+
         if ( MUTATION_DISTRIBUTION == 1 ) { // fatten tail of mutations of large effect if desired
             sortedS = (double *) malloc(sizeof(double) * nMUTATIONS);
             // first, determine what the actual upper FATTEN_TAIL_PROPORTION of the distribution is
@@ -3506,7 +3509,7 @@ void setUpMutationSequence(void)
         //			for ( i = 0; i < numToFlatten; i++ )
         //				S_MAX1[(MUTATION_ORDER[i])] = randU() * FATTEN_TAIL_MAX; // uniform random on [0,FATTEN_TAIL_MAX]
         //		}
-        
+
         /* // test check
          if ( MUTATION_DISTRIBUTION ) {
          fprintf(stderr, "\n\nThe altered distribution of S_MAX1:\n");
@@ -3565,10 +3568,10 @@ void setUpMutationSequence(void)
             //			}
         }
     }
-    
+
     // MUTATION_ORDER now specifies which loci are under selection, and in which order those loci will mutate from 0 to 1
     // make some matlab scripts for easy loading of records
-    
+
     FILE *fpt;
     fpt = fopen("Mutations.m","w");
     fprintf(fpt,"MUTATION_ORDER = [");
@@ -3596,8 +3599,8 @@ void setUpMutationSequence(void)
         fprintf(fpt, "%i ", REVERSAL_SEQUENCE[i]);
     fprintf(fpt,"];\n");
     fclose(fpt);
-    
-    
+
+
 }
 
 
@@ -3614,21 +3617,21 @@ void adjustFitnesses(void)
 {
     int j, dum, i;
     long int locus = newestLocus;
-    
+
     if ( nPATCHES == 2 ) {
         // patch 0, where 0 is the best allele
         fit0[(locus * nPATCHES)] = S_MAX0[locus];
         fit1[(locus * nPATCHES)] = 0.0;
         fitH[(locus * nPATCHES)] = ( 1.0 - H[locus] ) * S_MAX0[locus]; // H[locus] is the dominance coefficient for 1 alleles
-        
+
         //fprintf(stderr, "I'm here. locus = %i, fit0 = %G, fit1 = %G, fitH = %G\n",locus,fit0[(locus * nPATCHES)],fit1[(locus * nPATCHES)],fitH[(locus * nPATCHES)]);
-        
+
         // patch 1, where 1 is the best allele
         fit0[((locus * nPATCHES) + 1)] = 0.0;
         fit1[((locus * nPATCHES) + 1)] = S_MAX1[locus];
         fitH[((locus * nPATCHES) + 1)] = H[locus] * S_MAX1[locus];
     }
-    
+
     else if ( D == 2 && nPATCHES == 4 ) {
         i = locus;
         fit0[(i * nPATCHES)] = S_MAX0[i];
@@ -3644,7 +3647,7 @@ void adjustFitnesses(void)
         fitH[((i * nPATCHES) + 1)] = H[i] * S_MAX1[i];
         fitH[((i * nPATCHES) + 3)] = fitH[((i * nPATCHES) + 1)];
     }
-    
+
     else if ( MOSAIC ) {
         // mosaic
         for ( j = 0; j < nPATCHES; j++ ) {
@@ -3660,12 +3663,12 @@ void adjustFitnesses(void)
             }
         }
     }
-    
+
     else {
         // gradient
         double step0, step1, maxH, HstepUp, HstepDown, avg;
         int maxHpatch, rowNum, colNum, nSteps, midPatch1, midPatch2;
-        
+
         // increment of change
         if ( D == 1) {
             step0 = S_MAX0[locus] / ( (double) (PATCHES - 1) );
@@ -3687,21 +3690,21 @@ void adjustFitnesses(void)
             else if ( H[locus] > 0.0 && maxHpatch == 0 )
                 maxHpatch++;
         }
-        
+
         // upper row; best for 0
         fit0[(locus * nPATCHES)] = S_MAX0[locus];
         fit1[(locus * nPATCHES)] = 0.0;
         fitH[(locus * nPATCHES)] = ( 1.0 - H[locus] ) * S_MAX0[locus];
-        
+
         // lower row; best for 1
         fit0[((locus * nPATCHES) + nPATCHES - 1)] = 0.0;
         fit1[((locus * nPATCHES) + nPATCHES - 1)] = S_MAX1[locus];
         fitH[((locus * nPATCHES) + nPATCHES - 1)] = H[locus] * S_MAX1[locus];
-        
+
         maxH = ( (1.0 - H[locus]) * S_MAX0[locus] ) + ( H[locus] * S_MAX1[locus] );
         HstepUp = (maxH - fitH[(locus * nPATCHES)]) / ( (double) maxHpatch );
         HstepDown = (maxH - fitH[((locus * nPATCHES) + nPATCHES - 1)]) / ( (double) ((PATCHES - 1) - maxHpatch) );
-        
+
         for ( j = 1; j < nPATCHES; j++ ) {
             if ( D == 1 ) {
                 fit0[((locus * nPATCHES) + j)] = fit0[(locus * nPATCHES)] - (step0 * ((double) j));
@@ -3731,8 +3734,8 @@ void adjustFitnesses(void)
             fitH[((locus * nPATCHES) + midPatch2)] = avg;
         }
     }
-    
-    
+
+
     if ( MULTIPLICATIVE_FITNESS ) {  // adjust values for multiplying by a factor rather than adding selection coefficients in the additive case
         for ( j = 0; j < nPATCHES; j++ ) {
             fit0[((locus * nPATCHES) + j)] = fit0[((locus * nPATCHES) + j)] + 1.0;
@@ -3748,7 +3751,7 @@ void adjustFitnesses(void)
 void allocateGlobals(void)
 {
     // other globals
-    
+
     allele_frequencies = (double *) malloc( sizeof(double) * nLOCI ); // frequency of "1" allele at each locus across the whole population
     MAP = (double *) malloc( sizeof(double) * nLOCI ); // genetic map of all chromosomes; each zero is the start of a new chromosome
     S_MAX1 = (double *) malloc( sizeof(double) * nLOCI ); // values of selection coefficients for 1 alleles
@@ -3770,7 +3773,7 @@ void allocateGlobals(void)
         epi_coeff_matrix = (double *) palloc( POOL_EPI_COEFFS, (sizeof(double) * (nLOCI * nLOCI)) );
         epistasisMatrix = (short int *) palloc( POOL_EPISTASIS, (sizeof(short int) * ( nLOCI * nLOCI )) );
     }
-    
+
 }
 
 
@@ -3778,20 +3781,20 @@ double boxMuller(double mu, double sd)
 {
     /* boxmuller.c           Implements the Polar form of the Box-Muller
      Transformation
-     
+
      (c) Copyright 1994, Everett F. Carter Jr.
      Permission is granted by the author to use
      this software for any application provided this
      copyright notice is preserved.
      [ smf's note: accessed online 12.03.06 at
      http://www.taygeta.com/random/boxmuller.html ]
-     
+
      */
-    
+
     double x1, x2, w, y1;
     static double y2;
     static int use_last = 0;
-    
+
     if (use_last)		        /* use value from previous call */
     {
         y1 = y2;
@@ -3804,13 +3807,13 @@ double boxMuller(double mu, double sd)
             x2 = 2.0 * ( randU() ) - 1.0;
             w = x1 * x1 + x2 * x2;
         } while ( w >= 1.0 );
-        
+
         w = sqrt( (-2.0 * log( w ) ) / w );
         y1 = x1 * w;
         y2 = x2 * w;
         use_last = 1;
     }
-    
+
     return ( mu + y1 * sd );
 }
 
@@ -3819,20 +3822,20 @@ void calcDXY(int nSamples)
 {
     // this function calculates Dxy using actual samples of sequences and counting the differences among them.
     int i;
-    
+
     for ( i = 0; i < nPATCHES; i++ ) {
         if ( n_in_each_patch[i] <= nSamples ) {
             nSamples = n_in_each_patch[i] / 2;
         }
     }
-    
+
     int j, xi, yj, locus;
     int deme0sample[nSamples], deme1sample[nSamples];
     short int *gtpt0, *g0, *g1;
     int haplo0[nSamples], haplo1[nSamples];
     double dum, mult, DXY[3];
     long int sampleDiffs, neutralDiffs, selectedDiffs;
-    
+
     // choose haplotypes of diploid individuals at random
     for ( i = 0; i < nSamples; i++ ) {
         dum = randU();
@@ -3853,14 +3856,14 @@ void calcDXY(int nSamples)
             haplo1[i] = 1;
         }
     }
-    
+
     chooseDemeSample(deme0sample, 0, nSamples);
     chooseDemeSample(deme1sample, 1, nSamples);
-    
+
     DXY[0] = 0.0; // all sites
     DXY[1] = 0.0; // selected sites only
     DXY[2] = 0.0; // neutral sites only
-    
+
     for ( i = 0; i < nSamples; i++ ) {
         xi = deme0sample[i];
         gtpt0 = genotypes + (2 * nLOCI * xi) + haplo0[i];
@@ -3887,14 +3890,14 @@ void calcDXY(int nSamples)
             DXY[2] = DXY[2] + neutralDiffs;
         }
     }
-    
+
     mult = 1.0 / (nSamples * nSamples); // frequency of each haplotype pair assuming each one is unique
     DXY[0] = (mult * DXY[0]) / ((double)( nSELECTED_LOCI + nNEUTRAL_LOCI )); // DXY for all sites
     DXY[1] = (mult * DXY[1]) / ((double) nSELECTED_LOCI); // DXY if only selected sites were considered
     DXY[2] = (mult * DXY[2]) / ((double) nNEUTRAL_LOCI); // DXY if only neutral sites were considered
-    
+
     fprintf(DXYTS, "%li %E %E %E\n", totalGenerationsElapsed, DXY[0], DXY[1], DXY[2]);
-    
+
 }
 
 
@@ -3905,7 +3908,7 @@ void calcDXY2(double *alleleFrequenciesByPatch)
     int nPairs;
     _Bool yesSel;
     nPairs = (nPATCHES * (nPATCHES - 1) / 2);
-    
+
     double expectedDiffs[nPairs];
     double expectedSelDiffs[nPairs];
     double expectedNeutDiffs[nPairs];
@@ -3914,7 +3917,7 @@ void calcDXY2(double *alleleFrequenciesByPatch)
         expectedSelDiffs[i] = 0.0;
         expectedNeutDiffs[i] = 0.0;
     }
-    
+
     for ( locus = 0; locus < nLOCI; locus++ ) {
         if ( variable_loci[locus] ) {
             lcount++;
@@ -3926,7 +3929,7 @@ void calcDXY2(double *alleleFrequenciesByPatch)
                 neutcount++;
                 yesSel = 0;
             }
-            
+
             counter = 0;
             for ( i = 0; i < (nPATCHES-1); i++ ) {
                 for ( j = (i + 1); j < nPATCHES; j++ ) {
@@ -3935,22 +3938,22 @@ void calcDXY2(double *alleleFrequenciesByPatch)
                     p2 = *(alleleFrequenciesByPatch + (locus * nPATCHES) + j);
                     q2 = 1.0 - p2;
                     eDiff = (p1 * q2) + (p2 * q1);
-                    
+
                     expectedDiffs[counter] += eDiff;
                     if ( yesSel )
                         expectedSelDiffs[counter] += eDiff;
                     else
                         expectedNeutDiffs[counter] += eDiff;
-                    
+
                     counter++;
                 }
             }
-            
+
         }
-        
-        
+
+
     }
-    
+
     fprintf(DXYTS, "%li", totalGenerationsElapsed);
     for ( i = 0; i < nPairs; i++ ) {
         expectedDiffs[i] = expectedDiffs[i] / ((double) lcount);
@@ -3959,7 +3962,7 @@ void calcDXY2(double *alleleFrequenciesByPatch)
         fprintf(DXYTS, ",%E,%E,%E", expectedDiffs[i], expectedSelDiffs[i], expectedNeutDiffs[i]);
     }
     fprintf(DXYTS, "\n");
-    
+
 }
 
 
@@ -3972,25 +3975,25 @@ void calcExpectedME(double *fitpt, double *fitsumpt)
     double focalFitVal, maxFit[nPATCHES], randomFit[nPATCHES], minFit[nPATCHES], avgPatchFitness[nPATCHES];
     _Bool firstOne, allPatchesDiverged, stillLooking;
     double *fitTSvals;
-    
+
     if ( PURE_NEUTRAL_MODEL ) {
         for ( i = 0; i < nPATCHES; i++ ) {
-            
+
             nImmigrants = migrationCount[i];
             nResidents = n_in_each_patch[i] - migrationCount[i];
             eme[i] = ((double) nImmigrants) / ((double) n_in_each_patch[i]);
-            
+
             if ( nImmigrants > 0 )
                 avgImmFit[i] = 1.0;
             else
                 avgImmFit[i] = -1.0;
-            
-            
+
+
             if ( nResidents > 0 )
                 avgResFit[i] = 1.0;
             else
                 avgResFit[i] = -1.0;
-            
+
             if ( n_in_each_patch[i] > 0 )
                 avgPatchFitness[i] = 1.0;
             else
@@ -4064,33 +4067,33 @@ void calcExpectedME(double *fitpt, double *fitsumpt)
                                                in the patch that is owned by migrants */
             else
                 eme[i] = 0.0;
-            
+
             nImmigrants = migrationCount[i];
             if ( nImmigrants > 0 )
                 avgImmFit[i] = immFitSum / ((double) nImmigrants);
             else
                 avgImmFit[i] = -1.0;
-            
+
             nResidents = n_in_each_patch[i] - migrationCount[i];
             if ( nResidents > 0 )
                 avgResFit[i] = ((*fspt) - immFitSum) / ((double) nResidents);
             else
                 avgResFit[i] = -1.0;
-            
+
             if ( n_in_each_patch[i] > 0 )
                 avgPatchFitness[i] = (*fspt) / ((double) n_in_each_patch[i]);
             else
                 avgPatchFitness[i] = -1.0;
-            
-            
+
+
             fspt++;
         }
     }
-    
+
     // how about calculating the maximum possible fitness in a patch?
     // then average as a proportion of the maximum?
     // how about average LD?
-    
+
     fprintf(effMigRates,"%li", totalGenerationsElapsed);
     for ( j = 0; j < nPATCHES; j++ )
         fprintf(effMigRates," %G", eme[j]);
@@ -4126,7 +4129,7 @@ void calcExpectedME(double *fitpt, double *fitsumpt)
         if ( n_in_each_patch[j] >= nRECORD_FIT )
             fprintf(fitTSdeme1, " %E %E %E %E %E %E\n", avgResFit[j], avgImmFit[j], maxFit[j], minFit[j], randomFit[j], avgPatchFitness[j]);
     }
-    
+
     if ( RECORD_LD_VALUES && (totalGenerationsElapsed > END_PERIOD_ALLOPATRY) ) {
         if ( BeginRecordingLD ) { // we already started recorded before now
             if ( (avgImmFit[0]/avgResFit[0] <= END_THRESH_FOR_LD) && migrationCount[0] && (avgImmFit[j]/avgResFit[j] <= END_THRESH_FOR_LD) && migrationCount[j] && !RECORDING_TIMES_IN_FILE ) {
@@ -4143,11 +4146,11 @@ void calcExpectedME(double *fitpt, double *fitsumpt)
             }
         }
     }
-    
-    
-    
-    
-    
+
+
+
+
+
     if ( (totalGenerationsElapsed > END_PERIOD_ALLOPATRY) && (m > 100) && !PURE_NEUTRAL_MODEL ) {
         if ( approachingSpeciationThreshold ) {
             // we already had some indication of *potentially*
@@ -4182,10 +4185,10 @@ void calcExpectedME(double *fitpt, double *fitsumpt)
             }
         }
     }
-    
-    
+
+
     if ( totalGenerationsElapsed > END_PERIOD_ALLOPATRY && totalMigrants > 0  && !PURE_NEUTRAL_MODEL ) {
-        
+
         stillLooking = 1;
         allPatchesDiverged = 0;
         j = 0;
@@ -4198,14 +4201,14 @@ void calcExpectedME(double *fitpt, double *fitsumpt)
             }
             j++;
         }
-        
+
         if ( allPatchesDiverged ) {
             RI_REACHED = 1;
         }
     }
-    
-    
-    
+
+
+
     //	if ( ((eme[(nPATCHES-1)] > (100000.0 * eme[0])) && (eme[0] > 0.0)) || ((eme[0] > (100000.0 * eme[(nPATCHES-1)])) && (eme[(nPATCHES-1)] > 0.0)) ) {
     //		int totalImmigrants, cct = 0;
     //		fprintf(stderr,"\n\n**** Warning: Strange values of effective migration rates ****\n\n");
@@ -4246,8 +4249,8 @@ void calcExpectedME(double *fitpt, double *fitsumpt)
     //		testPrints();
     //		exit(1);
     //	}
-    
-    
+
+
 }
 
 
@@ -4255,7 +4258,7 @@ double calcMeanMagnitude(double *valuesArray, long int n)
 {
     long int i, j;
     double mu = 0.0, var = 0.0, *dpt;
-    
+
     // get the mean
     dpt = valuesArray;
     for ( i = 0; i < n; i++ ) {
@@ -4263,7 +4266,7 @@ double calcMeanMagnitude(double *valuesArray, long int n)
         dpt++;
     }
     return ( mu / ((double) n) );
-    
+
 }
 
 
@@ -4274,14 +4277,14 @@ double calcRandomHWFitness(int patchNum)
     _Bool rl;
     long int fitArrayIndex;
     static int giveWarning = 1;
-    
+
     if ( CONSIDER_EPISTASIS ) {
         if ( giveWarning ) {
             giveWarning = 0;
             fprintf(stderr,"\n\tWARNING: calcRandomHWFitness() does not account for\n\tCONSIDER_EPISTASIS\n\n");
         }
     }
-    
+
     for ( i = 0; i < nLOCI; i++ ) {
         if ( IS_SELECTED_LOCUS[i] ) {
             rl = is_reversed_locus[i];
@@ -4329,9 +4332,9 @@ double calculateMaxPossibleFitness(int patchNum)
     _Bool locusTakenCareOf[nLOCI], derivedFitHighest, ancestralFitHighest;
     short int bestGT;
     double ecmult, ec, fitVal = 1.0, fv1, fv2, resid;
-    
+
     ecmult = epi_patch_multipliers[patchNum];
-    
+
     p = 0;
     for ( i = 0; i < nLOCI; i++ ) {
         fitArrayIndex[i] = 0;
@@ -4341,8 +4344,8 @@ double calculateMaxPossibleFitness(int patchNum)
         }
         locusTakenCareOf[i] = 0;
     }
-    
-    
+
+
     if ( ecmult < 0.0 ) {
         derivedFitHighest = 0; // this is the array, fit1, not the alleles per se
         ancestralFitHighest = 1; // in this case, the fit0 array will have higher values than fit1
@@ -4351,9 +4354,9 @@ double calculateMaxPossibleFitness(int patchNum)
         derivedFitHighest = 1; // in this case, the fit1 array will have higher values than fit0
         ancestralFitHighest = 0;
     }
-    
+
     ecmult = fabs(ecmult);
-    
+
     for ( l = 0; l < nSELECTED_LOCI; l++ ) {
         locus = SELECTED_LOCI[l];
         fitArrayIndex[locus] = ( locus * nPATCHES ) + patchNum;
@@ -4362,14 +4365,14 @@ double calculateMaxPossibleFitness(int patchNum)
     if ( CONSIDER_EPISTASIS ) {
         for ( l = 0; l < nSELECTED_LOCI; l++ ) {
             locus = SELECTED_LOCI[l];
-            
+
             if ( any_epis_for_this_locus[locus] ) {
-                
+
                 if ( l < (nSELECTED_LOCI - 1) ) {
                     for ( j = l+1; j < nSELECTED_LOCI; j++ ) { // ensures we don't count an interaction twice
                         locus2 = SELECTED_LOCI[j];
                         epiInteraction = *(epistasisMatrix + (locus * nLOCI) + locus2); // locus-th row, locus2-th column
-                        
+
                         if ( epiInteraction == -1 ) {
                             if ( fixed_allele[locus] == 1 && fixed_allele[locus2] == 1 ) {
                                 // negative DMI is forced
@@ -4379,7 +4382,7 @@ double calculateMaxPossibleFitness(int patchNum)
                                 locusTakenCareOf[locus2] = 1;
                             }
                         }
-                        
+
                         else if ( epiInteraction == 1 ) { // positive interaction
                             if ( is_reversed_locus[locus] ) {
                                 if ( derivedFitHighest )
@@ -4393,12 +4396,12 @@ double calculateMaxPossibleFitness(int patchNum)
                                 else
                                     bestGT = 0;
                             }
-                            
+
                             if ( bestGT == 2 ) { // epis at this locus can work to increase max fitness
                                 //  because derived is best in this patch; does not matter if 1 allele is fixed or not
                                 ec = 1.0 + (ecmult * ( *(epi_coeff_matrix + (nLOCI * locus) + locus2) ));
                                 // ec is now a multiplier that can be used below
-                                
+
                                 if ( is_reversed_locus[locus] ) {
                                     if ( !ancestralFitHighest ) {
                                         fprintf(stderr, "\nError!  fit0 should have been highest if you got to this point.\n");
@@ -4415,19 +4418,19 @@ double calculateMaxPossibleFitness(int patchNum)
                                     fv1 = (*(fit1 + fitArrayIndex[locus]));
                                     fv2 = (*(fit1 + fitArrayIndex[locus2]));
                                 }
-                                
+
                                 resid = (fv1 * fv2) - 1.0; // get the increase in fitness from this pair of loci
                                 fitVal *= (1.0 + (ec * resid));
-                                
+
                                 locusTakenCareOf[locus] = 1;
                                 locusTakenCareOf[locus2] = 1;
                             }
-                            
+
                             else if ( fixed_allele[locus] == 1 && fixed_allele[locus2] == 1 ) {
                                 // the best allele is 0 but the 1 alleles fixed, so GT == 0 or 1 isn't possible, and epi hurts
                                 ec = 1.0 + (ecmult * ( *(epi_coeff_matrix + (nLOCI * locus) + locus2) ));
                                 // ec is now a multiplier that can be used below
-                                
+
                                 if ( ancestralFitHighest ) {
                                     fv1 = (*(fit0 + fitArrayIndex[locus]));
                                     fv2 = (*(fit0 + fitArrayIndex[locus2]));
@@ -4436,10 +4439,10 @@ double calculateMaxPossibleFitness(int patchNum)
                                     fv1 = (*(fit1 + fitArrayIndex[locus]));
                                     fv2 = (*(fit1 + fitArrayIndex[locus2]));
                                 }
-                                
+
                                 resid = (fv1 * fv2) - 1.0; // get the increase in fitness from this pair of loci
                                 fitVal *= (resid + 1.0) / (1.0 + (ec * resid)); // reduction in fitness
-                                
+
                                 locusTakenCareOf[locus] = 1;
                                 locusTakenCareOf[locus2] = 1;
                             }
@@ -4451,11 +4454,11 @@ double calculateMaxPossibleFitness(int patchNum)
     }
     // do the following, regardless of epistasis
     for ( l = 0; l < nSELECTED_LOCI; l++ ) {
-        
+
         locus = SELECTED_LOCI[l];
-        
+
         if ( !locusTakenCareOf[locus] ) { // effects of this locus on fitness have NOT yet been accounted for
-            
+
             if ( fixed_allele[locus] == 1 ) {
                 if ( is_reversed_locus[locus] )
                     fitVal *= (*(fit0 + fitArrayIndex[locus]));
@@ -4470,20 +4473,20 @@ double calculateMaxPossibleFitness(int patchNum)
             }
         }
     }
-    
+
 #elif ( ADDITIVE_FITNESS )
     if ( CONSIDER_EPISTASIS ) {
         fprintf(stderr, "\nHey dude, you didn't code all the calculations for additive fitness with epistasis yet.\n\tCode it and then compile again.\n\t... Exiting ...\n\n");
         exit(1);
     }
 #endif
-    
-    
+
+
     if ( fitVal < 0.0 ) {
         fprintf(stderr, "\nBad max fitness: fitval = %E\n", fitVal);
         exit(1);
     }
-    
+
     return fitVal;
 }
 
@@ -4495,9 +4498,9 @@ double calculateMinPossibleFitness(int patchNum)
     _Bool locusTakenCareOf[nLOCI], derivedFitHighest, ancestralFitHighest;
     short int bestGT;
     double ecmult, ec, fitVal = 1.0, fv1, fv2, resid;
-    
+
     ecmult = epi_patch_multipliers[patchNum];
-    
+
     p = 0;
     for ( i = 0; i < nLOCI; i++ ) {
         fitArrayIndex[i] = 0;
@@ -4507,8 +4510,8 @@ double calculateMinPossibleFitness(int patchNum)
         }
         locusTakenCareOf[i] = 0;
     }
-    
-    
+
+
     if ( ecmult < 0.0 ) {
         derivedFitHighest = 0; // this is the array, not the alleles per se
         ancestralFitHighest = 1; // in this case, fit0 array will have higher values than fit1
@@ -4517,9 +4520,9 @@ double calculateMinPossibleFitness(int patchNum)
         derivedFitHighest = 1;
         ancestralFitHighest = 0;
     }
-    
+
     ecmult = fabs(ecmult);
-    
+
     for ( l = 0; l < nSELECTED_LOCI; l++ ) {
         locus = SELECTED_LOCI[l];
         fitArrayIndex[locus] = ( locus * nPATCHES ) + patchNum;
@@ -4528,14 +4531,14 @@ double calculateMinPossibleFitness(int patchNum)
     if ( CONSIDER_EPISTASIS ) {
         for ( l = 0; l < nSELECTED_LOCI; l++ ) {
             locus = SELECTED_LOCI[l];
-            
+
             if ( any_epis_for_this_locus[locus] ) {
-                
+
                 if ( l < (nSELECTED_LOCI - 1) ) {
                     for ( j = l+1; j < nSELECTED_LOCI; j++ ) { // ensures we don't count an interaction twice
                         locus2 = SELECTED_LOCI[j];
                         epiInteraction = *(epistasisMatrix + (locus * nLOCI) + locus2); // locus-th row, locus2-th column
-                        
+
                         if ( epiInteraction == -1 ) {
                             // negative DMI
                             ec = *(epi_coeff_matrix + (nLOCI * locus) + locus2);
@@ -4543,7 +4546,7 @@ double calculateMinPossibleFitness(int patchNum)
                             locusTakenCareOf[locus] = 1;
                             locusTakenCareOf[locus2] = 1;
                         }
-                        
+
                         else if ( epiInteraction == 1 ) { // positive interaction; only count if it is forced by fixation
                             if ( is_reversed_locus[locus] ) {
                                 if ( derivedFitHighest )
@@ -4557,13 +4560,13 @@ double calculateMinPossibleFitness(int patchNum)
                                 else
                                     bestGT = 0;
                             }
-                            
+
                             if ( bestGT == 2 ) { // epis at this locus can work to increase max fitness
                                 //  because derived is best in this patch; does not matter if 1 allele is fixed or not
                                 if ( fixed_allele[locus] == 1 && fixed_allele[locus2] == 1 ) {
                                     ec = 1.0 + (ecmult * ( *(epi_coeff_matrix + (nLOCI * locus) + locus2) ));
                                     // ec is now a multiplier that can be used below
-                                    
+
                                     if ( is_reversed_locus[locus] ) {
                                         if ( !ancestralFitHighest ) {
                                             fprintf(stderr, "\nError!  fit0 should have been highest if you got to this point.\n");
@@ -4580,20 +4583,20 @@ double calculateMinPossibleFitness(int patchNum)
                                         fv1 = (*(fit1 + fitArrayIndex[locus]));
                                         fv2 = (*(fit1 + fitArrayIndex[locus2]));
                                     }
-                                    
+
                                     resid = (fv1 * fv2) - 1.0; // get the increase in fitness from this pair of loci
                                     fitVal *= (1.0 + (ec * resid));
-                                    
+
                                     locusTakenCareOf[locus] = 1;
                                     locusTakenCareOf[locus2] = 1;
                                 }
                             }
-                            
+
                             else {
                                 // the best allele is 0, so derived-derived pair can reduce fitness
                                 ec = 1.0 + (ecmult * ( *(epi_coeff_matrix + (nLOCI * locus) + locus2) ));
                                 // ec is now a multiplier that can be used below
-                                
+
                                 if ( ancestralFitHighest ) {
                                     fv1 = (*(fit0 + fitArrayIndex[locus]));
                                     fv2 = (*(fit0 + fitArrayIndex[locus2]));
@@ -4602,10 +4605,10 @@ double calculateMinPossibleFitness(int patchNum)
                                     fv1 = (*(fit1 + fitArrayIndex[locus]));
                                     fv2 = (*(fit1 + fitArrayIndex[locus2]));
                                 }
-                                
+
                                 resid = (fv1 * fv2) - 1.0; // get the increase in fitness from this pair of loci
                                 fitVal *= (resid + 1.0) / (1.0 + (ec * resid)); // reduction in fitness
-                                
+
                                 locusTakenCareOf[locus] = 1;
                                 locusTakenCareOf[locus2] = 1;
                             }
@@ -4617,11 +4620,11 @@ double calculateMinPossibleFitness(int patchNum)
     }
     // do the following, regardless of epistasis
     for ( l = 0; l < nSELECTED_LOCI; l++ ) {
-        
+
         locus = SELECTED_LOCI[l];
-        
+
         if ( !locusTakenCareOf[locus] ) { // effects of this locus on fitness have NOT yet been accounted for
-            
+
             if ( fixed_allele[locus] == 1 ) {
                 if ( is_reversed_locus[locus] )
                     fitVal *= (*(fit0 + fitArrayIndex[locus]));
@@ -4636,14 +4639,14 @@ double calculateMinPossibleFitness(int patchNum)
             }
         }
     }
-    
+
 #elif ( ADDITIVE_FITNESS )
     if ( CONSIDER_EPISTASIS ) {
         fprintf(stderr, "\nHey dude, you didn't code all the calculations for additive fitness with epistasis yet.\n\tCode it and then compile again.\n\t... Exiting ...\n\n");
         exit(1);
     }
 #endif
-    
+
     return fitVal;
 }
 
@@ -4652,7 +4655,7 @@ double calcVariance(double *valuesArray, long int n)
 {
     long int i, j;
     double mu = 0.0, var = 0.0, *dpt;
-    
+
     // get the mean
     dpt = valuesArray;
     for ( i = 0; i < n; i++ ) {
@@ -4660,15 +4663,15 @@ double calcVariance(double *valuesArray, long int n)
         dpt++;
     }
     mu = mu / ((double) n);
-    
+
     dpt = valuesArray;
     for ( i = 0; i < n; i++ ) {
         var += ( ((*dpt) - mu) * ((*dpt) - mu) );
         dpt++;
     }
-    
+
     return (var / ((double) n));
-    
+
 }
 
 void chooseDemeSample(int *sampleArray, int demeNumber, int nSamples)
@@ -4676,9 +4679,9 @@ void chooseDemeSample(int *sampleArray, int demeNumber, int nSamples)
     int i, j, startIndex, endIndex;
     int focalN, dumi;
     _Bool chooseAgain;
-    
+
     focalN = n_in_each_patch[demeNumber];
-    
+
     startIndex = 0;
     if ( demeNumber > 0 ) {
         for ( i = 0; i < demeNumber; i++ ) {
@@ -4686,7 +4689,7 @@ void chooseDemeSample(int *sampleArray, int demeNumber, int nSamples)
         }
     }
     endIndex = (startIndex + focalN) - 1;
-    
+
     dumi = startIndex + (randI() % focalN);
     if ( dumi < startIndex || dumi > endIndex ) {
         fprintf(stderr, "\nERROR!  Random sample algorithm busted!\n");
@@ -4734,7 +4737,7 @@ int compare_doubles(const void *a, const void *b)
      accessed on 4/26/12 */
     const double *da = (const double *) a;
     const double *db = (const double *) b;
-    
+
     return (*da > *db) - (*da < *db);
 }
 
@@ -4744,10 +4747,10 @@ int findNearestSelectedNeighbor(int focalLocus)
     int i, nsn = -1, cmemb, testLoc;
     double maplocation, minDist = 50.0, testDist;
     _Bool checkIt;
-    
+
     maplocation = MAP[focalLocus];
     cmemb = chromosomeMembership[focalLocus];
-    
+
     // look "down" first
     if (focalLocus > 0) {
         testLoc = focalLocus - 1;
@@ -4768,7 +4771,7 @@ int findNearestSelectedNeighbor(int focalLocus)
             }
         }
     }
-    
+
     // then look "up"
     if (focalLocus < (nLOCI-1)) {
         testLoc = focalLocus + 1;
@@ -4789,7 +4792,7 @@ int findNearestSelectedNeighbor(int focalLocus)
             }
         }
     }
-    
+
     // if nsn is still -1, that is a flag for none on this chromosome
     return nsn;
 }
@@ -4805,12 +4808,12 @@ void growEpistasisMatrix(void)
     long int nElements;
     short int *newEpistasisMatrix, *sipt, *oldsipt, *newsipt, dum1, dum2;
     double *newEpiCoeffMatrix, *dpt, *olddpt, *newdpt;
-    
+
     nElements = nLOCI * nLOCI;
-    
+
     newEpistasisMatrix = (short int *) palloc( POOL_EPISTASIS, (sizeof(short int) * nElements) );
     newEpiCoeffMatrix = (double *) palloc( POOL_EPI_COEFFS, (sizeof(double) * nElements) );
-    
+
     if ( nSELECTED_LOCI < 2 ) {
         sipt = newEpistasisMatrix;
         dpt = newEpiCoeffMatrix;
@@ -4895,29 +4898,29 @@ void growEpistasisMatrix(void)
                 }
             }
         }
-        
+
     }
-    
+
     if ( count != nElements ) {
         fprintf(stderr,"\nError!  Arithmetic of new epistasis interaction matrix is off:\n\tCount = %li, nElements = %li\n", count, nElements);
         exit(1);
     }
-    
-    
+
+
     if ( newPositiveEpiCount > 0 || newDMIcount > 0 ) {  /* at least one new epistatic interaction was added
                                                           need to adjust the newestLocus-th "row" of elements to match the corresponding column (symmetry)
                                                           above in the for loop in the part where the new counts are incremented, we have already set elements
                                                           (newestLocus * nLOCI) thru ((newestLocus+1)*nLOCI - 1) to the right values, just need to copy these
                                                           to make the matrix symmetrical */
         long int firstLoc, lastLoc;
-        
+
         firstLoc = newestLocus;
         lastLoc = newestLocus + ((nLOCI - 1) * nLOCI);
         if ( lastLoc != (nElements - (nLOCI - newestLocus)) ) {
             fprintf(stderr,"\nError in arithmetic tidying up incompat. matrix:\n\tlastLoc = %li, but should have been %li\n", lastLoc, (nElements - (nLOCI - newestLocus)) );
             exit(1);
         }
-        
+
         oldsipt = newEpistasisMatrix + (newestLocus * nLOCI); // we already filled in nLOCI new values starting here
         newsipt = newEpistasisMatrix + newestLocus;  // there are several, at nLOCI intervals, that we need to fill in starting here
         olddpt = newEpiCoeffMatrix + (newestLocus * nLOCI);
@@ -4933,18 +4936,18 @@ void growEpistasisMatrix(void)
             // dbbp
             lasti = i;
         }
-        
+
         if ( lasti != (nElements - (nLOCI - newestLocus)) ) {
             fprintf(stderr,"\nError in arithmetic tidying up incompat. matrix:\n\tlasti = %li, but should have been %li\n", lasti, (nElements - (nLOCI - newestLocus)) );
             exit(1);
         }
     }
-    
+
     pfree( epistasisMatrix );
     epistasisMatrix = newEpistasisMatrix;
     pfree( epi_coeff_matrix );
     epi_coeff_matrix = newEpiCoeffMatrix;
-    
+
     totalDMIs += newDMIcount;
     totalPositiveEpis += newPositiveEpiCount;
 }
@@ -4985,28 +4988,28 @@ void initializePopulation(void)
 #endif
             n_in_each_patch[(patch_locations[i])] = n_in_each_patch[(patch_locations[i])] + 1;
         }
-        
+
         // patch numbers
         //		double incr = 1.0 / ((double) PATCHES);
         //		for ( i = 0; i < (PATCHES-1); i++) {
         //			patch_division_points[i] = (i+1) * incr;
         //		}
         //		patch_division_points[(PATCHES-1)] = 1.0;
-        
+
         // intial genotypes
         genotypes = (short int*) palloc(POOL_GENOTYPES, (sizeof(short int) * INITIAL_POPULATION_SIZE * nLOCI * 2) );
         if ( EARLY_TEST_KILL > 0 )
             fprintf(stderr, "\nSize of genotypes in memory = %li\n", (sizeof(short int) * INITIAL_POPULATION_SIZE * nLOCI * 2));
         for ( i = 0; i < (INITIAL_POPULATION_SIZE * nLOCI * 2); i++ )
             genotypes[i] = 0;
-        
+
         for ( i = 0; i < nLOCI; i++ )
             allele_frequencies[i] = 0.0;
-        
-        
+
+
         // sort the population; not a true sort, but rather a binning
         // no need to sort genotypes here bcause they are monomorphic.  Instead, just sort coordinates (x and y locations) and patch numbers (patch locations)
-        
+
         double xsorted[INITIAL_POPULATION_SIZE], ysorted[INITIAL_POPULATION_SIZE];
         int patchSorted[INITIAL_POPULATION_SIZE], nextOpenSpot[nPATCHES], putMeHere, patch;
         nextOpenSpot[0] = 0;
@@ -5032,7 +5035,7 @@ void initializePopulation(void)
         }
         N = INITIAL_POPULATION_SIZE;
     }
-    
+
 }
 
 
@@ -5068,7 +5071,7 @@ int minInt(int i1, int i2)
 
 void openDataFilesForRecording( int gatherLDvalues ) {
     int i, j;
-    
+
     // open data files for recording
     effMigRates = fopen("EffectiveMigrationRates.txt","w");
     FSTtimeSeries = fopen("FSTtimeSeries.txt","w");
@@ -5081,7 +5084,7 @@ void openDataFilesForRecording( int gatherLDvalues ) {
         fitTSdeme0 = fopen("FitnessTSdeme0.txt","w");
         fitTSdeme1 = fopen("FitnessTSdeme1.txt","w");
     }
-    
+
     DXYTS = fopen("DXYtimeSeries.csv","w");
     fprintf(DXYTS, "Time");
     for ( i = 0; i < (nPATCHES - 1); i++ ) {
@@ -5090,8 +5093,8 @@ void openDataFilesForRecording( int gatherLDvalues ) {
         }
     }
     fprintf(DXYTS, "\n");
-    
-    
+
+
     nVarTS = fopen("NumberVariableLoci.txt","w");
     if ( CONSIDER_EPISTASIS )
         epistasisTS = fopen("EpistasisOverTime.txt","w");
@@ -5111,16 +5114,16 @@ void openDataFilesForRecording( int gatherLDvalues ) {
 //        LDfpt = fopen("LDvalues.txt","w");
 //        fprintf(LDfpt,"time locus1 locus2 LDcoef Dprime Delta MapDist S_MAX1loc1 S_MAX1loc2 locus1Type locus2type\n");
 //    }
-    
+
     effPopSizeData = fopen("EffPopSizeData.txt","w");
-    
+
     AFSTS = fopen("AlleleFrequencySpectrum.csv", "w");
     selAFSTS = fopen("SelectedAlleleFrequencySpectrum.csv", "w");
     neutAFSTS = fopen("NeutralAlleleFrequencySpectrum.csv", "w");
     fprintf( AFSTS, "Time,AlleleCount,NumSites\n" );
     fprintf( selAFSTS, "Time,AlleleCount,NumSites\n" );
     fprintf( neutAFSTS, "Time,AlleleCount,NumSites\n" );
-    
+
     // for JAFS data:
     const char* datadir;
     datadir = "JAFSdata";
@@ -5134,10 +5137,10 @@ void openDataFilesForRecording( int gatherLDvalues ) {
         printf("\n\tJAFSdata directory does not exist.\n\t\t... Creating it now ...\n");
         mkdir(datadir, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH );
     }
-    
+
     // for LD data as specified in LDcalculations.c:
     openLDdataFiles( gatherLDvalues );
-    
+
 }
 
 
@@ -5153,7 +5156,7 @@ long int Poisson(double mm)
 {
     double tt = 0.0;
     long int events = 0;
-    
+
     while (tt < mm) {  // cumulative "time" between events; mm is the expected events per unit of time
         tt += -(log(1.0 - randU())); /* adding an amount of "time" from a random exponential draw with mean 1.0 unit
                                       hence, this winds up treating mm as the expected number of units of time to achieve
@@ -5174,15 +5177,15 @@ void printParameters(long int estRunLength)
 {
     int i, j;
     FILE *pfpt;
-    
+
     pfpt = fopen("parameters.m","w");
-    
+
     fprintf(pfpt,"CodeVersion = '%s';\n\n",version);
-    
+
     fprintf(pfpt,"D = %i;\n",D);
     fprintf(pfpt,"PATCHES = %i;\n",PATCHES);
     fprintf(pfpt,"nPATCHES = %i;\n",nPATCHES);
-    
+
     fprintf(pfpt,"USE_MUTATIONS_FROM_FILES = %i;\n",USE_MUTATIONS_FROM_FILES);
     fprintf(pfpt,"ADDITIVE_FITNESS = %i;\n",ADDITIVE_FITNESS);
     fprintf(pfpt,"MULTIPLICATIVE_FITNESS = %i;\n",MULTIPLICATIVE_FITNESS);
@@ -5226,28 +5229,28 @@ void printParameters(long int estRunLength)
     fprintf(pfpt,"FRACTION_SELECTED_LOCI = %E;\n", FRACTION_SELECTED_LOCI);
     fprintf(pfpt,"PURE_NEUTRAL_MODEL = %i;\n", PURE_NEUTRAL_MODEL);
     fprintf(pfpt,"PURE_ALLOPATRY_MODEL = %i;\n", PURE_ALLOPATRY_MODEL);
-    
-    
+
+
     fprintf(pfpt,"epi_patch_multipliers = [");
     for ( i = 0; i < nPATCHES; i++ )
         fprintf(pfpt,"%f ", epi_patch_multipliers[i]);
     fprintf(pfpt,"];\n");
-    
+
     fprintf(pfpt,"H = [");
     for ( i = 0; i < nLOCI; i++ )
         fprintf(pfpt,"%E ",H[i]);
     fprintf(pfpt,"];\n");
-    
+
     if ( MOSAIC  && nPATCHES > 2 ) {
         fprintf(pfpt,"BEST_ALLELE_IN_PATCH = [");
         for ( i = 0; i < nPATCHES; i++ )
             fprintf(pfpt,"%i ",BEST_ALLELE_IN_PATCH[i]);
         fprintf(pfpt,"];\n");
     }
-    
-    
+
+
     fprintf(pfpt,"\n%% Parameters and state variables that affected data recording or length of simulation (but not results themselves):\n");
-    
+
     fprintf(pfpt,"TS_SAMPLING_FREQUENCY = %li;\n",TS_SAMPLING_FREQUENCY);
     fprintf(pfpt, "RECORDING_TIMES_IN_FILE = %i;\n", RECORDING_TIMES_IN_FILE);
     fprintf(pfpt,"RI_THRESH = %E;\n", RI_THRESH);
@@ -5260,8 +5263,8 @@ void printParameters(long int estRunLength)
     fprintf(pfpt,"LD_LOWER_BOUND = %E;\n", LD_LOWER_BOUND);
     //    fprintf(pfpt,"LD_UPPER_BOUND = %G;\n\n", LD_UPPER_BOUND);
     fprintf(pfpt,"FST_MIN_RECORDING_THRESH = %E;\n", FST_MIN_RECORDING_THRESH);
-    
-    
+
+
     fprintf(pfpt,"%% Some useful variable states at the end of the simulation\n");
     fprintf(pfpt,"approachingSpeciationThreshold = %i;\n", approachingSpeciationThreshold);
     fprintf(pfpt,"firstTimeResNearMaxFit = %li;\n", firstTimeResNearMaxFit);
@@ -5281,9 +5284,9 @@ void printParameters(long int estRunLength)
         fprintf(pfpt, "%i  ", LOCI_PER_CHROMOSOME[i]);
     }
     fprintf(pfpt, "];\n");
-    
-    
-    
+
+
+
     fclose(pfpt);
 }
 
@@ -5291,13 +5294,13 @@ void printParameters(long int estRunLength)
 int scalarPatchNumber(double x, double y)
 {
     int xpatch, ypatch;
-    
+
     if ( x >= 1.0 ) xpatch = PATCHES - 1;
     else xpatch = (int) ( x * ((double) PATCHES) ); // truncated, round-down multiplier
-    
+
     if ( y >= 1.0 ) ypatch = PATCHES - 1;
     else ypatch = (int) ( y * ((double) PATCHES) );
-    
+
     return ( ( xpatch * PATCHES ) + ypatch );
 }
 
@@ -5308,21 +5311,21 @@ int scalarPatchNumber(double x, double y)
 int seed_gen(void)
 {
     /* use calendar time to seed random number generator.  Code adopted from Schildt's textbook */
-    
+
     int stime;
     long ltime;
     FILE *rseed;
-    
+
     /* get the calendar time */
     ltime=time(NULL);
     stime=(unsigned) ltime/2;
-    
-    
+
+
     // generate and store random number seed
     rseed = fopen("RnumSeed.txt","w");
     fprintf(rseed,"%i\n",stime);
     fclose(rseed);
-    
+
     return stime;
 }
 
@@ -5334,30 +5337,31 @@ long int setTSfreq(void)
     int i, dum;
     long int incr;
     FILE *recTimesFile;
-    
+
     // expected total generations to barrier of 200 = m / me from matlab multiple linear regression runs 200002 - 201700
     // log10(T) = 5.1411*SD_MOVE - 77.3223*MEAN_S - 3.6414e-06*INITIAL_POPULATION_SIZE - 0.1116*MUTATIONS_PER_GENERATION + 6.8657
-    
+
     tsf = 5.1411*SD_MOVE - 77.3223*MEAN_S - 3.6414E-06*((double) INITIAL_POPULATION_SIZE) - 0.1116*((double) MUTATIONS_PER_GENERATION) + 6.8657;
-    
+
     tsf = pow(10.0, tsf);
     et = (long int) tsf;
-    
+
     tsf = tsf / ((double) nTIME_SAMPLES);
-    
-    TS_SAMPLING_FREQUENCY = (long int) tsf;
-    
-    if ( TS_SAMPLING_FREQUENCY < MIN_TS_SAMP_FREQ )
-        TS_SAMPLING_FREQUENCY = MIN_TS_SAMP_FREQ;
-    
-    if ( TS_SAMPLING_FREQUENCY > MAX_TS_SAMP_FREQ )
-        TS_SAMPLING_FREQUENCY = MAX_TS_SAMP_FREQ;
-    
+
+    if (TS_SAMPLING_FREQUENCY == 0 ) {
+      TS_SAMPLING_FREQUENCY = (long int) tsf;
+
+      if ( TS_SAMPLING_FREQUENCY < MIN_TS_SAMP_FREQ )
+          TS_SAMPLING_FREQUENCY = MIN_TS_SAMP_FREQ;
+
+      if ( TS_SAMPLING_FREQUENCY > MAX_TS_SAMP_FREQ )
+          TS_SAMPLING_FREQUENCY = MAX_TS_SAMP_FREQ;
+    }
     if ( et < 1 )
         et = 1;
-    
+
     if ( RECORDING_TIMES_IN_FILE ) {
-        
+
         recTimesFile = fopen("RecordingTimes.txt", "r");
         if ( recTimesFile == NULL ) {
             //if ( PURE_NEUTRAL_MODEL || PURE_ALLOPATRY_MODEL ) {
@@ -5370,7 +5374,7 @@ long int setTSfreq(void)
             for ( i = 1; i < nRecordingTimes; i++ )
                 fprintf(recTimesFile, "%li ", (incr * i));
             fprintf(recTimesFile, "%li", ((long int) maxGen) - 1);
-            
+
             fclose(recTimesFile);
             recTimesFile = fopen("RecordingTimes.txt", "r");
             //}
@@ -5388,7 +5392,7 @@ long int setTSfreq(void)
             }
             else
                 dum = fscanf( recTimesFile, "%li", (vectorOfRecordingTimes+i) );
-            
+
             if ( vectorOfRecordingTimes[i] < 0 ) {
                 printf("\n\tError in setTSfreq():\n\t\tNegative time in rec times in file!\n");
                 exit(-1);
@@ -5400,23 +5404,23 @@ long int setTSfreq(void)
                 }
             }
         }
-        
+
         fclose(recTimesFile);
         nextRecordingTime = vectorOfRecordingTimes[0];
-        
+
         printf("\n\tData will be recorded at the following %i times:\n\t\t", nRecordingTimes);
         for ( i = 0; i < nRecordingTimes; i++ ) {
             printf("%li\t", vectorOfRecordingTimes[i]);
         }
         printf("\n\n");
-        
+
         // make sure no other times are recorded:
         TS_SAMPLING_FREQUENCY = 100 * nMUTATIONS;
-        
+
         BeginRecordingLD = 1;
         //exit(0);
     }
-    
+
     return et;
 }
 
@@ -5428,14 +5432,14 @@ void shrinkEpistasisMatrix(int locusToRemove)
     short int *oldsipt, *newsipt;
     int nDMIsLost = 0, nPositiveEpisLost = 0;
     double *olddpt, *newdpt;
-    
+
     oldsipt = epistasisMatrix;
     newsipt = epistasisMatrix;
     olddpt = epi_coeff_matrix;
     newdpt = epi_coeff_matrix;
-    
+
     //nLOCI has NOT yet been decremented
-    
+
     for ( i = 0; i < nLOCI; i++ ) {
         if ( i == locusToRemove ) {
             // skip over all these entries
@@ -5474,14 +5478,14 @@ void shrinkEpistasisMatrix(int locusToRemove)
                     newdpt++;
                     olddpt++;
                 }
-                
+
             }
         }
     }
-    
+
     totalDMIs -= nDMIsLost;
     totalPositiveEpis -= nPositiveEpisLost;
-    
+
 }
 
 
@@ -5503,20 +5507,20 @@ void sortPopulation(void)
 #if ( D == 2 )
     double *sorted_y = (double*) palloc(POOL_Y_LOCATIONS, sizeof(double) * N );
 #endif
-    
+
     int lastp = -1;
     int samePatchCnt = 0;
-    
+
     printf("sortPopulation\n");
     putMeHere[0] = 0;
     for ( i = 1; i < nPATCHES; i++ )
         putMeHere[i] = putMeHere[(i-1)] + n_in_each_patch[(i-1)];
-    
+
     for ( i = 0; i < N; i++ ) {
         p = patch_locations[i];
         //if (p != 1)
         //printf("p = %d ", p);
-        
+
         if (p == lastp)
             samePatchCnt++;
         else {
@@ -5525,44 +5529,44 @@ void sortPopulation(void)
             printf("%d: ", p);
             lastp = p;
         }
-        
+
         spot = putMeHere[p];
-        
+
         sortedPatchLocations[spot] = p;
         sortedPrevPatLoc[spot] = previousPatches[i];
-        
+
         sorted_x[spot] = x_locations[i];
 #if ( D == 2 )
         sorted_y[spot] = y_locations[i];
 #endif
         putMeHere[p] = putMeHere[p] + 1;
-        
+
         opt = genotypes + ( i * 2 * nLOCI );
         npt = sortedGenotypes + ( spot * 2 * nLOCI );
         memcpy(npt, opt, sizeof(short int) * 2 * nLOCI);
     }
-    
+
     pfree(x_locations);
     x_locations = sorted_x;
     pfree(previousPatches);
     previousPatches = sortedPrevPatLoc;
-    
+
 #if ( D == 2)
     pfree(y_locations);
     y_locations = sorted_y;
 #endif
-    
+
     pfree(genotypes);
     genotypes = sortedGenotypes;
-    
+
     pfree(patch_locations);
     patch_locations = sortedPatchLocations;
     printf("%d\n", samePatchCnt);
     //printf("same patch %d / %d times\n", samePatchCnt, N);
-    
+
     lastp = -1;
     samePatchCnt = 0;
-    
+
     printf("\n");
     for ( i = 0; i < N; i++ ) {
         p = patch_locations[i];
@@ -5576,7 +5580,7 @@ void sortPopulation(void)
         }
     }
     printf("%d\n", samePatchCnt);
-    
+
 }
 
 
@@ -5594,12 +5598,12 @@ void sortPopulation2(void)
 #if ( D == 2 )
     double *sorted_y = (double*) palloc(POOL_Y_LOCATIONS, sizeof(double) * N );
 #endif
-    
+
     putMeHere[0] = 0;
     for ( i = 1; i < nPATCHES; i++ )
         putMeHere[i] = putMeHere[(i-1)] + n_in_each_patch[(i-1)];
-    
-    
+
+
     //
     // Set up initial conditions for batch copying of loci
     //
@@ -5611,13 +5615,13 @@ void sortPopulation2(void)
         npt = sortedGenotypes + ( 2 * nLOCI * (putMeHere[p]) );
     else
         npt = sortedGenotypes; // when p == 0
-    
+
     //
     // Go through all members, placing them in order within their patches
     //
     for ( i = 0; i < N; i++ ) {
         p = patch_locations[i];
-        
+
         spot = putMeHere[p];
         sortedPatchLocations[spot] = p;
         sorted_x[spot] = x_locations[i];
@@ -5626,7 +5630,7 @@ void sortPopulation2(void)
         sorted_y[spot] = y_locations[i];
 #endif
         putMeHere[p] = putMeHere[p] + 1;
-        
+
         if (p == lastPatch)
             adjacentPatchCount++;
         else {
@@ -5634,7 +5638,7 @@ void sortPopulation2(void)
             // Copy all loci that were adjacent
             //
             memcpy(npt, opt, sizeof(short int) * 2 * nLOCI * adjacentPatchCount);
-            
+
             //
             // Reset all parameters for next batch of loci to copy
             //
@@ -5644,24 +5648,24 @@ void sortPopulation2(void)
             npt = sortedGenotypes + ( spot * 2 * nLOCI );
         }
     }
-    
+
     if (adjacentPatchCount)	// Copy any remaining loci
         memcpy(npt, opt, sizeof(short int) * 2 * nLOCI * adjacentPatchCount);
-    
+
     pfree(x_locations);
     x_locations = sorted_x;
-    
+
     pfree(previousPatches);
     previousPatches = sortedPrevPatLoc;
-    
+
 #if ( D == 2)
     pfree(y_locations);
     y_locations = sorted_y;
 #endif
-    
+
     pfree(genotypes);
     genotypes = sortedGenotypes;
-    
+
     pfree(patch_locations);
     patch_locations = sortedPatchLocations;
 }
@@ -5671,11 +5675,11 @@ void testPrints(void)
 {
     if ( EARLY_TEST_KILL > 0 ) {
         fprintf(stderr, "\n");
-        
+
         fprintf(stderr, "Version = %s\n\n",version);
     }
     //fprintf(stderr, "nGENERATIONS_MAX_DEFAULT = %li\n", nGENERATIONS_MAX);
-    
+
     int i,j,count;
     FILE *fpt;
     fpt = fopen("FinalLocations.txt","w");
@@ -5687,8 +5691,8 @@ void testPrints(void)
 #endif
     }
     fclose(fpt);
-    
-    
+
+
     //	fprintf(stderr, "Mutation order:\n");
     //	for ( i = 0; i < nMUTATIONS; i++ ) {
     //		fprintf(stderr, "%i, ",MUTATION_ORDER[i]);
@@ -5699,13 +5703,13 @@ void testPrints(void)
     //	for ( i = 0; i < nLOCI; i++ ) {
     //		fprintf(stderr, "%G\t%G\n", S_MAX1[i],S_MAX0[i]);
     //	}
-    
+
     /* // test
      fpt = fopen("TestExp.txt","w");
      for ( i = 0; i < 100000; i++ ) fprintf(fpt,"%G\n",( log(1 - randU()) * -MEAN_S ) );
      fclose(fpt); // */
-    
-    
+
+
     if ( EARLY_TEST_KILL > 1 ) {
         fprintf(stderr, "\n\n");
         fprintf(stderr, "\n\nMap:\n");
@@ -5720,19 +5724,19 @@ void testPrints(void)
     }
     if ( EARLY_TEST_KILL > 0 ) {
         fprintf(stderr, "\n\nNumber of chromosomes = %i\n\n", nCHROMOSOMES);
-        
+
         fprintf(stderr, "\nLOCI_PER_CHROMOSOME:\n");
         for (i=0; i<nCHROMOSOMES; i++) {
             fprintf(stderr, "%i  ", LOCI_PER_CHROMOSOME[i]);
         }
         fprintf(stderr, "\n\n");
-        
+
         fprintf(stderr, "\nMAP_LENGTHS:\n");
         for ( i = 0; i < nCHROMOSOMES; i++ )
             fprintf(stderr, "%G  ",MAP_LENGTHS[i]);
         fprintf(stderr, "\n\n");
     }
-    
+
     /*
      fpt = fopen("FinalGenotypes.txt","w");
      count = 0;
@@ -5744,22 +5748,22 @@ void testPrints(void)
      }
      fclose(fpt);
      */
-    
+
     fpt = fopen("AllelesEstablished.m","w");
     fprintf(fpt,"variable_loci = [");
     for ( i = 0; i < nLOCI; i++ )
         fprintf(fpt,"%i ", variable_loci[i]);
     fprintf(fpt,"];\n");
-    
+
     fprintf(fpt,"fixed_allele = [");
     for ( i = 0; i < nLOCI; i++ )
         fprintf(fpt,"%i ", fixed_allele[i]);
     fprintf(fpt,"];\n");
     fclose(fpt);
-    
-    
+
+
     FILE *pfpt;
-    
+
     if ( MUTATION_DISTRIBUTION == 2 ) { // could have changed first few values
         fpt = fopen("Mutations.m","w");  // overwrite original file set up at initialization
         fprintf(fpt,"MUTATION_ORDER = [");
@@ -5784,21 +5788,21 @@ void testPrints(void)
         fprintf(fpt,"];\n");
         fclose(fpt);
     }
-    
+
     fpt = fopen("lociSvalues.m","w");  // overwrite
     fprintf(fpt,"S_MAX0 = [");
     for ( i = 0; i < nLOCI; i++ )
         fprintf(fpt, "%E ", S_MAX0[i]);
     fprintf(fpt,"];\n");
-    
+
     fprintf(fpt,"S_MAX1 = [");
     for ( i = 0; i < nLOCI; i++ )
         fprintf(fpt, "%E ", S_MAX1[i]);
     fprintf(fpt,"];\n");
     fclose(fpt);
-    
+
     pfpt = fopen("FitnessMatrices.m","w"); // overwrite
-    
+
     fprintf(pfpt, "fit0 = [");
     for ( i = 0; i < nLOCI; i++ ) {
         for ( j = 0; j < nPATCHES; j++ )
@@ -5807,7 +5811,7 @@ void testPrints(void)
             fprintf(pfpt,";\n");
     }
     fprintf(pfpt,"];\n\n");
-    
+
     fprintf(pfpt, "fit1 = [");
     for ( i = 0; i < nLOCI; i++ ) {
         for ( j = 0; j < nPATCHES; j++ )
@@ -5816,7 +5820,7 @@ void testPrints(void)
             fprintf(pfpt,";\n");
     }
     fprintf(pfpt,"];\n\n");
-    
+
     fprintf(pfpt, "fitH = [");
     for ( i = 0; i < nLOCI; i++ ) {
         for ( j = 0; j < nPATCHES; j++ )
@@ -5825,17 +5829,17 @@ void testPrints(void)
             fprintf(pfpt,";\n");
     }
     fprintf(pfpt,"];\n");
-    
+
     fclose(pfpt);
-    
-    
+
+
     FILE *mpt;
     mpt = fopen("Map.m","w");
     fprintf(mpt,"MAP = [");
     for ( i = 0; i < nLOCI; i++ )
         fprintf(mpt,"%.10E ",MAP[i]);
     fprintf(mpt,"];\n\n");
-    
+
     int locus = 0;
     for ( i = 0; i < nCHROMOSOMES; i++ ) {
         fprintf(mpt,"Chromosome%i = [",i);
@@ -5855,11 +5859,11 @@ void testPrints(void)
             if ( MAP[i] < MAP[(i-1)] ) {
                 fprintf(stderr, "\nChromosome break at: MAP[%i] = %E, MAP[%i] = %E",i,MAP[i],(i-1),MAP[(i-1)]);
             }
-            
+
         }
         fprintf(stderr, "\n");
     }
-    
+
 }
 
 
@@ -5867,18 +5871,18 @@ void
 usage(char *s)
 {
     fprintf(stderr,  "Usage: %s [options]\n\n", s);
-    
+
     fprintf(stderr,  "\tNOTE: There is very little error checking on user inputs.\n");
     fprintf(stderr,  "\tProgram behavior is unpredictable (not defined) for\n");
     fprintf(stderr,  "\tinputs that do not conform to guidelines below.\n\n");
-    
+
     fprintf(stderr,  "\t[-A <integer>] \tGeneration when allopatry ends, expressed in\n");
     fprintf(stderr,  "\t\t\tterms of numbers of generations elapsed.\n");
     fprintf(stderr,  "\t\t\tSet to -1 for primary contact, i.e., divergence\n");
     fprintf(stderr,  "\t\t\twith constant gene flow, i.e., sympatry/parapatry.\n");
     fprintf(stderr,  "\t\t\tDefault is %i generations.\n", END_PERIOD_ALLOPATRY_DEFAULT);
     fprintf(stderr,  "\t\t\tNote that -A is for creating a basic secondary contact scenario.\n\t\t\tFor a period of allopatry in the middle of a simulation run,\n\t\t\tuse -a and -J below.\n\n");
-    
+
     fprintf(stderr,  "\t[-a <integer>] \tWhen to start the period of allopatry, expressed in\n");
     fprintf(stderr,  "\t\t\tterms of numbers of generations.\n");
     fprintf(stderr,  "\t\t\tThis option is for creating a period of allopatry\n\t\t\tsomewhere in the MIDDLE of a simulation run.\n");
@@ -5887,19 +5891,19 @@ usage(char *s)
     fprintf(stderr,  "\t\t\twhen using -A.   This option overrides -A.\n");
     fprintf(stderr,  "\t\t\tThis should be used in conjunction with -J.\n");
     fprintf(stderr,  "\t\t\tDefault is %i generations.\n\n", START_PERIOD_ALLOPATRY_DEFAULT);
-    
-    
+
+
     fprintf(stderr,  "\t[-B <integer>] \tNumber of large-effect mutations to establish\n");
     fprintf(stderr,  "\t\t\tearly in a run.  Used with '-f 2' or '-b 1' (see below).\n");
     fprintf(stderr,  "\t\t\tDefault is %i\n\n",NUMBER_BIG_TO_ESTABLISH_DEFAULT);
-    
+
     fprintf(stderr,  "\t[-b <0 or 1>] \tStart with -B large effect mutations established\n");
     fprintf(stderr,  "\t\t\tat approximate migration-selection balance.\n");
     fprintf(stderr,  "\t\t\tDefault is %i\n\n",START_WITH_BIG_IN_PLACE_DEFAULT);
-    
+
     fprintf(stderr,  "\t[-C <integer>] \tNumber of chromosomes.\n");
     fprintf(stderr,  "\t\t\tDefault is %i\n\n",nCHROMOSOMES_DEFAULT);
-    
+
     fprintf(stderr,  "\t[-D <0 or 1>]\tRun in deterministic mode.\n");
     fprintf(stderr,  "\t\t\tWith -D 1, the random number seed\n");
     fprintf(stderr,  "\t\t\tis read from the file 'RnumSeed.txt'.\n");
@@ -5907,7 +5911,7 @@ usage(char *s)
     fprintf(stderr,  "\t\t\tin the current wd, program will exit with an error message.\n");
     fprintf(stderr,  "\t\t\tWith -D 0, the program will seed RNG with system time.\n");
     fprintf(stderr,  "\t\t\tDefault is %i\n\n",DETERMINISTIC_DEFAULT);
-    
+
     fprintf(stderr,  "\t[-d <sigma>] \tStandard deviation of dispersal distances.\n");
     fprintf(stderr,  "\t\t\tDefault is %G\n",SD_MOVE_DEFAULT);
     fprintf(stderr,  "\t\t\tRecall that the habitat is the unit line\n");
@@ -5915,7 +5919,7 @@ usage(char *s)
     fprintf(stderr,  "\t\t\tof the habitat's width covered by a movement\n");
     fprintf(stderr,  "\t\t\tof length <sigma> in one dimension.\n");
     fprintf(stderr,  "\t\t\tNOTE: in 'two-deme mode' (see -e 1), -d specifies\n\t\t\tthe probability of migration.\n\n");
-    
+
     fprintf(stderr,  "\t[-e <0 or 1>]\tRun in two deme mode with -e 1.\n");
     fprintf(stderr,  "\t\t\tDefault is %i\n",TWO_DEME_DEFAULT);
     fprintf(stderr,  "\t\t\t-e 1 option should ONLY be called if the \n");
@@ -5924,13 +5928,13 @@ usage(char *s)
     fprintf(stderr,  "\t\t\tThis option eliminates effects of\n");
     fprintf(stderr,  "\t\t\tcontinuous space and essentially creates\n");
     fprintf(stderr,  "\t\t\ta two-patch island model (see note in -d, above, also.\n\n");
-    
-    
+
+
     fprintf(stderr,  "\t[-F <0,1>] \tFixed population size\n");
     fprintf(stderr,  "\t\t\t'-F 1': population size is fixed\n");
     fprintf(stderr,  "\t\t\t'-F 0': logistic (density-dependent) growth\n");
     fprintf(stderr,  "\t\t\tDefault is %i; see also '-K' below.\n\n",FIXED_N_DEFAULT);
-    
+
     fprintf(stderr,  "\t[-f <0,1,2>] \tDistribution of mutation S values\n");
     fprintf(stderr,  "\t\t\t'-f 0': exponential distribution with mean set by '-S'\n");
     fprintf(stderr,  "\t\t\t'-f 1': 'fattened' tail (see also usage of '-P' below)\n");
@@ -5938,94 +5942,94 @@ usage(char *s)
     fprintf(stderr,  "\t\t\t\tbeing drawn from uniform distribution on [0,%G]\n",FATTEN_TAIL_MAX);
     fprintf(stderr,  "\t\t\t\tand later mutations following exponential\n\t\t\t\t(see '-B' above).\n");
     fprintf(stderr,  "\t\t\tDefault is %i\n\n",MUTATION_DISTRIBUTION_DEFAULT);
-    
+
     fprintf(stderr,  "\t[-G <0,1,2>] \tGamete production mode.\n");
     fprintf(stderr,  "\t\t\t'-G 0': divergence and genome hitchhiking\n");
     fprintf(stderr,  "\t\t\t'-G 1': genome hitchhiking\n");
     fprintf(stderr,  "\t\t\t'-G 2': direct selection only (loci inherited\n\t\t\t\tindependently)\n");
     fprintf(stderr,  "\t\t\tDefault is %i\n\n",GAMETE_PRODUCTION_MODE_DEFAULT);
-    
+
     fprintf(stderr,  "\t[-H <value>] \tDominance coefficient of '1' alleles over '0' alleles.\n");
     fprintf(stderr,  "\t\t\tDefault is %G; must lie between 0 and 1.\n\n",H_DEFAULT);
-    
+
     fprintf(stderr,  "\t[-I <value>] \tProportion of pairs of loci with an incompatibility.\n");
     fprintf(stderr,  "\t\t\tDefault is %f.\n\n",DMI_PROB_DEFAULT);
-    
+
     fprintf(stderr,  "\t[-i <value>] \tProportion of pairs of loci positive epistasis.\n");
     fprintf(stderr,  "\t\t\tDefault is %f.\n\n",POSITIVE_EPI_PROB_DEFAULT);
-    
+
     fprintf(stderr,  "\t[-J <int>] \tLength of period of allopatry when using -a.\n");
     fprintf(stderr,  "\t\t\tValue for -J is only used when -a value (above) is > 0\n");
     fprintf(stderr,  "\t\t\tDefault is %i\n\n",PERIOD_ALLOPATRY_DEFAULT);
-    
-    
+
+
     fprintf(stderr,  "\t[-K <value>] \tCarrying capacity of each patch.\n");
     fprintf(stderr,  "\t\t\t<value> is only used if population is NOT fixed\n");
     fprintf(stderr,  "\t\t\t(see '-F' above)\n");
     fprintf(stderr,  "\t\t\tDefault is %G\n\n",K_DEFAULT);
-    
+
     fprintf(stderr,  "\t[-L <0,1>] \tOffspring born in random locations\n");
     fprintf(stderr,  "\t\t\t'-L 0': each offspring occupies the same position as\n");
     fprintf(stderr,  "\t\t\t\tone of its parents (randomly chosen).\n");
     fprintf(stderr,  "\t\t\t'-L 1': each offspring occupies a position in its\n");
     fprintf(stderr,  "\t\t\t\tnatal patch that is independent of its parents.\n");
-    fprintf(stderr,  "\t\t\tDefault is %i\n\n",OIRL_DEFAULT);	
-    
+    fprintf(stderr,  "\t\t\tDefault is %i\n\n",OIRL_DEFAULT);
+
     fprintf(stderr,  "\t[-l <value>] \tTOTAL length of genetic map (all chromosomes combined).\n");
-    fprintf(stderr,  "\t\t\tUnless a custom map is specified, each of the C\n");	
-    fprintf(stderr,  "\t\t\tchromosomes will have length <value>/C\n");	
-    fprintf(stderr,  "\t\t\t(see also '-C' above).\n");	
+    fprintf(stderr,  "\t\t\tUnless a custom map is specified, each of the C\n");
+    fprintf(stderr,  "\t\t\tchromosomes will have length <value>/C\n");
+    fprintf(stderr,  "\t\t\t(see also '-C' above).\n");
     fprintf(stderr,  "\t\t\tDefault is %G\n\n",TOTAL_MAP_LENGTH_DEFAULT);
-    
+
     fprintf(stderr,  "\t[-m <integer>] \tNumber of mutations to introduce.\n");
     fprintf(stderr,  "\t\t\tDefault is %i\n\n",nMUTATIONS_DEFAULT);
-    
+
     fprintf(stderr,  "\t[-N <integer>] \tPopulation size (or initial population size\n");
     fprintf(stderr,  "\t\t\tif used with '-F 0'; see above).\n");
     fprintf(stderr,  "\t\t\tDefault is %i\n\n",INITIAL_POPULATION_SIZE_DEFAULT);
-    
+
     fprintf(stderr,  "\t[-O <0,1>] \tMosaic or gradient environmental variation\n");
     fprintf(stderr,  "\t\t\t'-O 0': habitat with a discrete 'gradient' of\n\t\t\t\tfitness variation.\n");
     fprintf(stderr,  "\t\t\t'-O 1': habitat with a mosaic of patches.\n");
     fprintf(stderr,  "\t\t\tIf the total number of patches is only 2, this\n\t\t\toption does not matter.\n");
-    fprintf(stderr,  "\t\t\tDefault is %i\n\n",MOSAIC_DEFAULT);	
-    
+    fprintf(stderr,  "\t\t\tDefault is %i\n\n",MOSAIC_DEFAULT);
+
     fprintf(stderr,  "\t[-P <value>] \tPercent of S distribution tail 'fattened'.\n");
-    fprintf(stderr,  "\t\t\tSee usage of '-f' above.\n\t\t\t<value> set here is only used with '-f 1'.\n");	
+    fprintf(stderr,  "\t\t\tSee usage of '-f' above.\n\t\t\t<value> set here is only used with '-f 1'.\n");
     fprintf(stderr,  "\t\t\tDefault is %G\n\n",FATTEN_TAIL_PROPORTION_DEFAULT);
-    
+
     fprintf(stderr,  "\t[-R <thresh>] \tThreshold value for determining RI.\n");
     fprintf(stderr,  "\t\t\tIf avg. resident fitness > thresh * avg. immigrant\n");
     fprintf(stderr,  "\t\t\tfitness, then the program is exited.\n");
     fprintf(stderr,  "\t\t\tDefault is %E\n\n",RI_THRESH);
-    
+
     fprintf(stderr,  "\t[-S <mean>] \tMean value of selection coefficients.\n");
     fprintf(stderr,  "\t\t\tCoefficients are drawn from an exponential\n");
     fprintf(stderr,  "\t\t\tdistribution with this as the distribution's\n");
     fprintf(stderr,  "\t\t\tparameter (but see -f above).\n");
     fprintf(stderr,  "\t\t\tDefault is %G\n\n",MEAN_S_DEFAULT);
-    
-    
+
+
     fprintf(stderr,  "\t[-s <0,1>] \tSymmetric S values for 0 and 1 alleles\n");
     fprintf(stderr,  "\t\t\t'-s 0': values chosen for 0 and 1 alleles at a locus\n");
     fprintf(stderr,  "\t\t\t\tare independent of each other.\n");
     fprintf(stderr,  "\t\t\t'-s 1': allele '0' is just as good in patch #0 as\n");
     fprintf(stderr,  "\t\t\t\tallele '1' is in patch #nPATCHES-1.\n");
-    fprintf(stderr,  "\t\t\tDefault is %i\n\n",SYMMETRIC_MUTATIONS_DEFAULT);	
-    
+    fprintf(stderr,  "\t\t\tDefault is %i\n\n",SYMMETRIC_MUTATIONS_DEFAULT);
+
     fprintf(stderr,  "\t[-T <integer>] \tdesired number of time samples.  Approximate!\n");
     fprintf(stderr,  "\t\t\tDefault is %i \n\n",nTIME_SAMPLES_DEFAULT);
-    
+
     fprintf(stderr,  "\t[-t <integer>] \tAmount of time (number of generations)\n");
     fprintf(stderr,  "\t\t\tbetween mutation introductions.\n");
     fprintf(stderr,  "\t\t\tDefault is %i generations\n\n",nGENERATIONS_MAX_DEFAULT);
-    
+
     fprintf(stderr,  "\t[-V <0,1>] \tRecord linkage disequilibrium time series.\n");
     fprintf(stderr,  "\t\t\tBoolean variable:  0 = do not record, 1 = record.\n");
     fprintf(stderr,  "\t\t\tLinkage disequilibrium data file ('LDvalues.txt')\n");
     fprintf(stderr,  "\t\t\tproduced with -V 1 may be very large (10s of GB).\n");
     fprintf(stderr,  "\t\t\tDefault is %i\n\n",RECORD_LD_VALUES_DEFAULT);
-    
+
 }
 
 
@@ -6043,7 +6047,7 @@ void
 printTime(long t)
 {
     int days, hours, min, sec;
-    
+
     sec = (int)(t / CLOCKS_PER_SEC);
     days = sec / (24 * 60 * 60);
     sec  -= days * (24 * 60 * 60);
@@ -6051,14 +6055,14 @@ printTime(long t)
     sec  -= hours * (60 * 60);
     min   = sec / 60;
     sec  -= min * 60;
-    
+
     if (days)
         printf("%dd ", days);
     if (hours)
         printf("%dh ", hours);
     if (min)
         printf("%dm ", min);
-    
+
     //
     // If it's a short run, print fractions of seconds
     //
@@ -6072,7 +6076,7 @@ printTime(long t)
 //
 // Palloc/Pfree	-- specialized memory allocation. Keeps previously
 //	allocated memory on a free list for quick reuse, no matter
-//	what the size of the allocation.  
+//	what the size of the allocation.
 //
 //	Must pass in a non-zero pool tag to help palloc() reuse previously allocated/freed
 //	memory.  Allocations from the same pool should be of similar size/use.
@@ -6085,19 +6089,19 @@ palloc(int tag, size_t size)
     int i;
     size_t realloc_size;
     char *palloc_env;
-    
+
     palloc_count++;
-    
+
     if (!initialized) {
         initialized = 1;
-        
+
         palloc_env = getenv("PALLOC");
         if (palloc_env) {
             printf("PALLOC = %s\n", palloc_env);
             palloc_debug = atoi(palloc_env);
             printf("palloc_debug = %d\n", palloc_debug);
         }
-        
+
         for (i = 0; i < PALLOC_TRACK_LIMIT; i++) {
             palloc_pool_track[i].tag = 0;
             palloc_pool_track[i].size = 0L;
@@ -6106,22 +6110,22 @@ palloc(int tag, size_t size)
             palloc_pool_track[i].reallocated = 0;
         }
     }
-    
+
     if (tag == 0) {				 // make sure tag is legal
         fprintf(stderr, "Must use pool tag != 0\n");
         exit(-1);
     }
-    
+
     if (palloc_debug > 1)
         printf("palloc%d(%ld)\n", palloc_count, (long)size);
-    
+
     //
     // See if we've had an allocation of this pool previously
     //
     for (i = 0; i < palloc_track_count; i++)
         if (tag == palloc_pool_track[i].tag)
             break;
-    
+
     //
     // if it's a new pool, start tracking it
     //
@@ -6130,9 +6134,9 @@ palloc(int tag, size_t size)
         palloc_pool_track[i].tag = tag;
         palloc_pool_track[i].size = size;
     }
-    
+
     palloc_pool_track[i].requested++;
-    
+
     //
     // Search our free list for a previously allocated block
     // of the correct size.
@@ -6146,10 +6150,10 @@ palloc(int tag, size_t size)
         }
         printf("\n");
     }
-    
-    if (palloc_debug > 3) 
+
+    if (palloc_debug > 3)
         printf("Looking for reclaim for size %d\n", (int)size);
-    
+
     prev = NULL;
     buf = palloc_free_list;
     while (buf != NULL) {
@@ -6158,48 +6162,48 @@ palloc(int tag, size_t size)
         prev = buf;
         buf = buf->next;
     }
-    
+
     if (buf) {				// if we found one, udpate
-        if (palloc_debug > 3) 
+        if (palloc_debug > 3)
             printf("success: %p %d   %d\n", buf, (int)buf->size, buf->tag);
         palloc_free--;			// stats
         palloc_reclaimed++;
-        
+
         if (prev) 			// pull it out of the list
             prev->next = buf->next;
         else
             palloc_free_list = buf->next;
-        
+
         if (buf->size < size) {		// make sure it's big enough
             //
             // make the new buffer size 10% larger than what was
             // requested so we avoid excess reallocations
             //
             realloc_size = (size_t)((size * 11) / 10);
-            
+
             //printf("before realloc: buf = %p ", buf);
             buf = (palloc_hdr *)realloc(buf, realloc_size + PALLOC_HDR_SIZE);
             //printf("after: buf = %p\n", buf);
             //fflush(NULL);
             buf->size = realloc_size;
             buf->tag = tag;
-            
+
             palloc_realloced++;
             palloc_pool_track[i].reallocated++;
         }
-        
+
         buf->next = NULL;
     }
     else {
-        if (palloc_debug > 3) 
+        if (palloc_debug > 3)
             printf("failed\n");
-        
+
         //
         // need to allocate a new buffer with our headed prepended
         //
         if (++palloc_active > palloc_max_active)
             palloc_max_active = palloc_active;
-        
+
         palloc_pool_track[i].allocated++;
         buf = (palloc_hdr *)malloc(size+PALLOC_HDR_SIZE);
         //printf("palloc(%d): buf = %p\n", size+PALLOC_HDR_SIZE, buf);
@@ -6207,35 +6211,35 @@ palloc(int tag, size_t size)
         buf->tag = tag;
         buf->next = NULL;
     }
-    
+
     return (void *)((unsigned char *)buf + PALLOC_HDR_SIZE);
 }
 
 
-void 
+void
 pfree(void *ptr)
 {
     int i;
     palloc_hdr *buf;
-    
+
     palloc_active--;
     if (++palloc_free > palloc_max_free)
         palloc_max_free = palloc_free;
-    
+
     //
     // Adjust the pointer to get back to our header.
     //
     buf = (palloc_hdr *)((unsigned char *)ptr - PALLOC_HDR_SIZE);
-    
+
     //
     // Add to head of our free list for later reuse.
     //
     buf->next = palloc_free_list;
     palloc_free_list = buf;
-    
-    if (palloc_debug > 2) 
+
+    if (palloc_debug > 2)
         printf("freeing size %d\n", (int)buf->size);
-    
+
     if (palloc_debug > 4) {
         printf("FREELIST: ");
         buf = palloc_free_list;
@@ -6245,7 +6249,7 @@ pfree(void *ptr)
         }
         printf("\n");
     }
-    
+
     //
     // Don't actually free the buffer, but this is what we'd do
     // if we did.
@@ -6258,16 +6262,16 @@ void
 palloc_stats()
 {
     int i;
-    
+
     if (palloc_debug) {
         printf("pool	size	alloc	/ request	realloc\n");
         for (i = 0; i < palloc_track_count; i++)
-            printf("%d	%ld	%d	/ %d		%d\n", i, 
+            printf("%d	%ld	%d	/ %d		%d\n", i,
                    palloc_pool_track[i].size,
                    palloc_pool_track[i].allocated,
                    palloc_pool_track[i].requested,
                    palloc_pool_track[i].reallocated);
-        
+
         printf("palloc_count = %d\n", palloc_count);
         printf("palloc_max_active = %d\n", palloc_max_active);
         printf("palloc_max_free = %d\n", palloc_max_free);
